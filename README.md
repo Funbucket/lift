@@ -62,9 +62,12 @@ lift mcp
 Implemented MCP tools:
 
 - `inspect_dataset`
+- `validate_dataset`
+- `validate_causal_assumptions`
 - `analyze_campaign`
 - `simulate_budget`
 - `generate_report`
+- `export_targets`
 - `list_outputs`
 - `doctor`
 
