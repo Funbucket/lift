@@ -12,9 +12,16 @@ from lift.system.doctor import doctor_report
 from lift.system.paths import default_output_root
 from lift.workflow.run import AnalyzeConfig, analyze
 from lift.workflow.simulate import refresh_report, report_run, simulate_run
+from lift.interfaces.repl import run_repl
 
 
-app = typer.Typer(no_args_is_help=True)
+app = typer.Typer(invoke_without_command=True)
+
+
+@app.callback()
+def callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        run_repl()
 
 
 @app.command("inspect")

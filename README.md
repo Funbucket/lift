@@ -44,6 +44,15 @@ lift doctor
 .venv/bin/lift outputs
 ```
 
+Run `lift` with no command to open the local REPL:
+
+```text
+lift> /inspect fixtures/randomized_coupon.csv
+lift> /analyze fixtures/randomized_coupon.csv --budget 5 --min-roi 0.1
+lift> /outputs
+lift> /exit
+```
+
 ## Fixtures
 
 Small local fixtures are available for smoke testing:
