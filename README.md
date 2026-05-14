@@ -17,21 +17,45 @@ Current implementation scope:
 
 `references/fractional_uplift` is reference-only and is not a runtime dependency.
 
-## CLI
+## Install
 
-Install local dependencies first:
+For local development:
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
+.venv/bin/lift doctor
+.venv/bin/lift quickstart
 ```
 
-Or install a user launcher from the repo root:
+Install from a built wheel with `pipx`:
 
 ```bash
-sh scripts/install/install.sh
+PYTHON_BIN=.venv/bin/python scripts/build.sh
+pipx install --force dist/lift_agent-0.1.0-py3-none-any.whl
 lift doctor
+lift quickstart
 ```
+
+Install a user launcher without `pipx`:
+
+```bash
+PYTHON_BIN=python3 sh scripts/install/install.sh
+lift doctor
+lift quickstart
+```
+
+Install a built wheel through the user launcher script:
+
+```bash
+LIFT_PACKAGE=dist/lift_agent-0.1.0-py3-none-any.whl sh scripts/install/install.sh
+lift doctor
+lift quickstart
+```
+
+By default, installed runs write artifacts under `~/.lift/outputs`. Override with `--output-root`, `LIFT_HOME`, or `LIFT_OUTPUT_ROOT`.
+
+## CLI
 
 ```bash
 .venv/bin/lift inspect data.csv
@@ -94,8 +118,6 @@ Supported regression estimators:
 - `gradient_boosting`
 
 Config files can set logical column names, feature include/exclude lists, estimator types, and estimator params. See `configs/example.yaml`.
-
-By default, installed runs write artifacts under `~/.lift/outputs`. Override with `--output-root`, `LIFT_HOME`, or `LIFT_OUTPUT_ROOT`.
 
 ## Build
 

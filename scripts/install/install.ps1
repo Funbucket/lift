@@ -2,12 +2,20 @@ param(
   [string]$LiftHome = $(if ($env:LIFT_HOME) { $env:LIFT_HOME } else { Join-Path $HOME ".lift" }),
   [string]$LiftBinDir = $(if ($env:LIFT_BIN_DIR) { $env:LIFT_BIN_DIR } else { Join-Path $HOME ".local\bin" }),
   [string]$LiftSource = $(if ($env:LIFT_SOURCE) { $env:LIFT_SOURCE } else { (Get-Location).Path }),
+  [string]$LiftPackage = $(if ($env:LIFT_PACKAGE) { $env:LIFT_PACKAGE } elseif ($env:LIFT_SOURCE) { $env:LIFT_SOURCE } else { (Get-Location).Path }),
   [string]$PythonBin = $(if ($env:PYTHON_BIN) { $env:PYTHON_BIN } else { "python" })
 )
 
-$pyproject = Join-Path $LiftSource "pyproject.toml"
-if (!(Test-Path $pyproject)) {
-  Write-Error "Lift source not found at $LiftSource. Run this from the repo root or set LIFT_SOURCE."
+$isDirectory = Test-Path $LiftPackage -PathType Container
+$isFile = Test-Path $LiftPackage -PathType Leaf
+if ($isDirectory) {
+  $pyproject = Join-Path $LiftPackage "pyproject.toml"
+  if (!(Test-Path $pyproject)) {
+    Write-Error "Lift source not found at $LiftPackage. Run this from the repo root or set LIFT_PACKAGE."
+    exit 1
+  }
+} elseif (!$isFile) {
+  Write-Error "Lift package not found at $LiftPackage. Set LIFT_PACKAGE to a source directory, wheel, or sdist."
   exit 1
 }
 
@@ -19,7 +27,7 @@ New-Item -ItemType Directory -Force -Path $LiftBinDir | Out-Null
 $venvPython = Join-Path $venvDir "Scripts\python.exe"
 $venvPip = Join-Path $venvDir "Scripts\pip.exe"
 & $venvPython -m pip install --upgrade pip
-& $venvPip install $LiftSource
+& $venvPip install $LiftPackage
 
 $launcher = Join-Path $LiftBinDir "lift.cmd"
 $liftExe = Join-Path $venvDir "Scripts\lift.exe"
@@ -28,6 +36,8 @@ $liftExe = Join-Path $venvDir "Scripts\lift.exe"
 Write-Host "Lift installed."
 Write-Host "Launcher: $launcher"
 Write-Host "Home: $LiftHome"
+Write-Host "Package: $LiftPackage"
 Write-Host ""
 Write-Host "Make sure $LiftBinDir is on PATH, then run:"
 Write-Host "  lift doctor"
+Write-Host "  lift quickstart"
