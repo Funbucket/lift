@@ -19,6 +19,15 @@ Current implementation scope:
 
 ## Install
 
+One-line installer shape for a published wheel:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/scripts/install/install.sh | LIFT_PACKAGE_URL=https://github.com/<owner>/<repo>/releases/latest/download/lift_agent-0.1.0-py3-none-any.whl bash
+lift setup
+lift doctor
+lift quickstart
+```
+
 For local development:
 
 ```bash
@@ -53,6 +62,8 @@ LIFT_PACKAGE=dist/lift_agent-0.1.0-py3-none-any.whl sh scripts/install/install.s
 lift doctor
 lift quickstart
 ```
+
+The installer also supports `LIFT_VERSION`, `LIFT_PACKAGE_URL`, `LIFT_RELEASE_BASE_URL`, `LIFT_HOME`, `LIFT_BIN_DIR`, and `PYTHON_BIN`.
 
 By default, installed runs write artifacts under `~/.lift/outputs`. Override with `--output-root`, `LIFT_HOME`, or `LIFT_OUTPUT_ROOT`.
 
@@ -128,4 +139,5 @@ Smoke test the built wheel in a clean virtual environment:
 
 ```bash
 PYTHON_BIN=python3 scripts/smoke-wheel.sh
+PYTHON_BIN=python3 scripts/install/smoke-install.sh
 ```

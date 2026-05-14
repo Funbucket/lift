@@ -29,3 +29,6 @@ jobs:
 
       - name: Smoke test wheel install
         run: PYTHON_BIN=python scripts/smoke-wheel.sh
+
+      - name: Smoke test installer
+        run: PYTHON_BIN=python scripts/install/smoke-install.sh
