@@ -23,7 +23,9 @@ LIFT_HOME="$SMOKE_DIR/home"
 "$VENV_DIR/bin/pip" install "$WHEEL_PATH"
 
 "$VENV_DIR/bin/lift" version
+PATH="$VENV_DIR/bin:$PATH" LIFT_HOME="$LIFT_HOME" "$VENV_DIR/bin/lift" setup --overwrite
 PATH="$VENV_DIR/bin:$PATH" LIFT_HOME="$LIFT_HOME" "$VENV_DIR/bin/lift" doctor
+PATH="$VENV_DIR/bin:$PATH" LIFT_HOME="$LIFT_HOME" "$VENV_DIR/bin/lift" install-skills --target repo --project-root "$SMOKE_DIR" --overwrite
 PATH="$VENV_DIR/bin:$PATH" LIFT_HOME="$LIFT_HOME" "$VENV_DIR/bin/lift" quickstart --budget 5 --min-roi 0.1
 
 echo "Wheel smoke test passed: $WHEEL_PATH"

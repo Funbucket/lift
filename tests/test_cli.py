@@ -118,6 +118,54 @@ class CliTest(unittest.TestCase):
         self.assertNotIn("mcp", help_result.output)
         self.assertNotIn("mcp-config", help_result.output)
 
+    def test_setup_writes_settings(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir) / "home"
+            outputs = Path(temp_dir) / "outputs"
+            result = runner.invoke(
+                app,
+                [
+                    "setup",
+                    "--output-root",
+                    str(outputs),
+                    "--default-seed",
+                    "77",
+                    "--overwrite",
+                ],
+                env={"LIFT_HOME": str(home)},
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            payload = json.loads(result.output)
+            settings_path = Path(payload["settings_path"])
+            self.assertTrue(settings_path.exists())
+            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+            self.assertEqual(settings["output_root"], str(outputs))
+            self.assertEqual(settings["default_seed"], 77)
+            self.assertEqual(payload["paths"]["outputs"], str(outputs))
+
+    def test_install_skills_writes_repo_skill(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = runner.invoke(
+                app,
+                [
+                    "install-skills",
+                    "--target",
+                    "repo",
+                    "--project-root",
+                    temp_dir,
+                    "--overwrite",
+                ],
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            payload = json.loads(result.output)
+            skill_path = Path(payload["skill_path"])
+            self.assertTrue(skill_path.exists())
+            text = skill_path.read_text(encoding="utf-8")
+            self.assertIn("lift analyze", text)
+            self.assertIn("Do not invent incremental ROI", text)
+
     def test_quickstart_runs_packaged_example(self) -> None:
         runner = CliRunner()
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -468,6 +468,8 @@ lift install-skills --target repo
 
 The standalone runtime must not require MCP. Agent integrations are delivered through skills/prompts that call the local `lift` CLI and read artifacts.
 
+`lift setup` writes `~/.lift/settings.json` with local defaults such as output root, seed, and estimator choices. `lift install-skills` writes a `SKILL.md` that instructs Codex/Claude-style agents to call the local CLI and read artifacts instead of inventing metrics.
+
 ---
 
 # 10. Artifact Contract

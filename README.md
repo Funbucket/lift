@@ -24,6 +24,7 @@ For local development:
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
+.venv/bin/lift setup
 .venv/bin/lift doctor
 .venv/bin/lift quickstart
 ```
@@ -85,6 +86,13 @@ lift> /exit
 ```
 
 Lift is designed as a standalone local CLI/runtime. Codex and Claude integration should use Lift skills and prompts, not an MCP server.
+
+Install Lift guidance into Codex or a repo-local agent directory:
+
+```bash
+lift install-skills --target codex
+lift install-skills --target repo --project-root .
+```
 
 ## Fixtures
 

@@ -12,6 +12,8 @@ from lift.data.load import load_csv, read_json, read_mapping
 from lift.data.schema import infer_schema, validate_rows
 from lift.system.doctor import doctor_report
 from lift.system.paths import default_output_root
+from lift.system.setup import write_settings
+from lift.system.skills import install_skill
 from lift.workflow.run import AnalyzeConfig, analyze
 from lift.workflow.simulate import refresh_report, report_run, simulate_run
 from lift.interfaces.repl import run_repl
@@ -153,6 +155,40 @@ def outputs(output_root: str = default_output_root()) -> None:
 @app.command("doctor")
 def doctor() -> None:
     _echo_json(doctor_report())
+
+
+@app.command("setup")
+def setup(
+    output_root: str | None = None,
+    default_seed: int = 123,
+    baseline_model: str = "ridge",
+    nuisance_model: str = "ridge",
+    overwrite: bool = False,
+) -> None:
+    try:
+        _echo_json(
+            write_settings(
+                output_root=output_root,
+                default_seed=default_seed,
+                baseline_model=baseline_model,
+                nuisance_model=nuisance_model,
+                overwrite=overwrite,
+            )
+        )
+    except Exception as exc:
+        _exit_error("setup_failed", str(exc))
+
+
+@app.command("install-skills")
+def install_skills(
+    target: str = "codex",
+    project_root: str | None = None,
+    overwrite: bool = False,
+) -> None:
+    try:
+        _echo_json(install_skill(target=target, project_root=project_root, overwrite=overwrite))
+    except Exception as exc:
+        _exit_error("install_skills_failed", str(exc))
 
 
 @app.command("quickstart")

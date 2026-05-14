@@ -31,5 +31,6 @@ echo "Home: $LIFT_HOME"
 echo "Package: $LIFT_PACKAGE"
 echo
 echo "Make sure $LIFT_BIN_DIR is on PATH, then run:"
+echo "  lift setup"
 echo "  lift doctor"
 echo "  lift quickstart"
