@@ -101,3 +101,9 @@ ls dist/
 ```
 
 The build script runs bytecode compilation and the unit test suite before packaging.
+
+Smoke test the built wheel in a clean virtual environment:
+
+```bash
+PYTHON_BIN=python3 scripts/smoke-wheel.sh
+```
