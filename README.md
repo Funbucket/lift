@@ -53,6 +53,21 @@ lift> /outputs
 lift> /exit
 ```
 
+Run the stdio MCP server:
+
+```bash
+lift mcp
+```
+
+Implemented MCP tools:
+
+- `inspect_dataset`
+- `analyze_campaign`
+- `simulate_budget`
+- `generate_report`
+- `list_outputs`
+- `doctor`
+
 ## Fixtures
 
 Small local fixtures are available for smoke testing:
