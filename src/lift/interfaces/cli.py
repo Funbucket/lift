@@ -15,7 +15,6 @@ from lift.system.paths import default_output_root
 from lift.workflow.run import AnalyzeConfig, analyze
 from lift.workflow.simulate import refresh_report, report_run, simulate_run
 from lift.interfaces.repl import run_repl
-from lift.interfaces.mcp import run_mcp_server
 
 
 app = typer.Typer(invoke_without_command=True)
@@ -188,11 +187,6 @@ def status() -> None:
 @app.command("version")
 def version() -> None:
     _echo_json({"version": __version__})
-
-
-@app.command("mcp")
-def mcp() -> None:
-    run_mcp_server()
 
 
 def main() -> None:

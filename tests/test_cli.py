@@ -111,6 +111,13 @@ class CliTest(unittest.TestCase):
         self.assertFalse(payload["fractional_uplift_runtime_dependency"])
         self.assertIn("dependencies", payload)
 
+    def test_mcp_commands_are_not_exposed(self) -> None:
+        runner = CliRunner()
+        help_result = runner.invoke(app, ["--help"])
+        self.assertEqual(help_result.exit_code, 0, help_result.output)
+        self.assertNotIn("mcp", help_result.output)
+        self.assertNotIn("mcp-config", help_result.output)
+
     def test_quickstart_runs_packaged_example(self) -> None:
         runner = CliRunner()
         with tempfile.TemporaryDirectory() as temp_dir:

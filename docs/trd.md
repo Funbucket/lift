@@ -1,9 +1,9 @@
 # TRD: Lift
 
-## Core Models and MCP Architecture
+## Core Models and Standalone Runtime Architecture
 
 **문서 목적**  
-이 문서는 [PRD](./prd.md)를 구현 가능한 기술 요구사항으로 분해한다. Lift의 핵심 구현 방향은 “기존 uplift 라이브러리 wrapping”이 아니라, **Duality R-learner, Direct Ranking, Constrained Ranking을 자체 core model로 구현하는 것**이다.
+이 문서는 [PRD](./prd.md)를 구현 가능한 기술 요구사항으로 분해한다. Lift의 MVP 구현 방향은 “기존 uplift 라이브러리 wrapping”이 아니라, **Baselines와 Duality R-learner를 자체 workflow로 제공하는 standalone local runtime**을 만드는 것이다. Direct Ranking과 Constrained Ranking은 Post-MVP 확장으로 둔다.
 
 ---
 
@@ -13,7 +13,11 @@
 
 Lift의 핵심 모델은 내부 구현으로 소유한다.
 
+- baseline ranking models
 - `DualityRLearner`
+
+Post-MVP 모델:
+
 - `DirectRankingModel`
 - `ConstrainedRankingModel`
 
@@ -52,7 +56,8 @@ Lift는 해당 repo에서 다음만 참고한다.
 1. **Interface Layer**
    - CLI
    - REPL slash command
-   - MCP server
+   - setup/quickstart commands
+   - skills/prompts installer for Codex/Claude
 
 2. **Workflow Layer**
    - run orchestration
@@ -78,8 +83,6 @@ Lift는 해당 repo에서 다음만 참고한다.
 5. **Model Layer**
    - baseline estimators
    - Duality R-learner
-   - Direct Ranking
-   - Constrained Ranking
 
 6. **Evaluation Layer**
    - campaign-level incrementality
@@ -233,6 +236,8 @@ selected_lambda_metric
 
 ## 5.3 Direct Ranking
 
+Status: Post-MVP.
+
 목적:
 
 - 개별 CATE point estimate를 먼저 맞추는 대신, score가 만든 cohort의 aggregate effectiveness를 직접 최적화한다.
@@ -272,6 +277,8 @@ Implementation requirements:
 - validation AUCC early stopping
 
 ## 5.4 Constrained Ranking
+
+Status: Post-MVP.
 
 목적:
 
@@ -326,7 +333,7 @@ Requirements:
 - negative denominator policy
 - optional distillation target generation
 
-이 objective는 core model의 보조 scoring mode로 쓰며, MVP 핵심 모델은 여전히 Duality R-learner, Direct Ranking, Constrained Ranking이다.
+이 objective는 core model의 보조 scoring mode로 쓰며, MVP 핵심 모델은 Baselines와 Duality R-learner다.
 
 ---
 
@@ -414,13 +421,15 @@ trust_level
 
 ---
 
-# 9. CLI and MCP Contract
+# 9. Standalone Runtime Contract
 
 ## 9.1 CLI commands
 
 ```
 lift
 lift chat [prompt]
+lift setup
+lift quickstart
 lift inspect <dataset>
 lift analyze <dataset>
 lift simulate <run-id>
@@ -444,25 +453,20 @@ lift status
 /outputs
 ```
 
-## 9.3 MCP tools
+## 9.3 Install and setup commands
 
 Required:
 
 ```
-inspect_dataset
-validate_dataset
-validate_causal_assumptions
-estimate_propensity
-analyze_campaign_incrementality
-train_duality_r_learner
-train_direct_ranking
-train_constrained_ranking
-evaluate_rankings
-simulate_budget
-export_targets
-generate_report
-list_outputs
+curl -fsSL <install-url> | bash
+lift setup
+lift doctor
+lift quickstart
+lift install-skills --target codex
+lift install-skills --target repo
 ```
+
+The standalone runtime must not require MCP. Agent integrations are delivered through skills/prompts that call the local `lift` CLI and read artifacts.
 
 ---
 
@@ -518,23 +522,26 @@ status
 
 ## Phase 2: Core Models
 
+- baseline ranking models
 - Duality R-learner
-- Direct Ranking
-- Constrained Ranking
 - model leaderboard
 - budget simulation
 
-## Phase 3: UX and MCP
+## Phase 3: Standalone UX
 
 - CLI commands
 - REPL slash commands
-- MCP server tools
+- setup command
+- one-line installer
+- skills/prompts installer
 - output browser
 - doctor/status
 
 ## Phase 4: Extensions
 
 - optional baseline adapters
+- Direct Ranking
+- Constrained Ranking
 - model distillation
 - multi-treatment
 - bucketized continuous treatment
@@ -547,10 +554,10 @@ status
 MVP is complete when:
 
 1. Core workflow runs without `fractional_uplift` as a dependency.
-2. Duality R-learner, Direct Ranking, and Constrained Ranking produce comparable score columns.
+2. Baselines and Duality R-learner produce comparable score columns.
 3. Evaluation computes Cost Curve, AUCC, iRoI, CPiA, and budget frontier.
 4. Budget simulation never exports targets above the configured budget.
 5. Trust Layer blocks invalid datasets and warns on observational risk.
-6. CLI and MCP use the same core engine.
+6. CLI and REPL use the same core engine.
 7. Every run writes reproducible artifacts and provenance.
-
+8. Codex/Claude integration is available through skills/prompts, not MCP.

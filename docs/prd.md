@@ -1,6 +1,6 @@
 # PRD: Lift
 
-## MCP 기반 Incrementality Decision Agent
+## Feynman식 Local Incrementality Decision Runtime
 
 ---
 
@@ -38,18 +38,24 @@ Lift의 모델 설계는 다음 reference를 기준으로 한다.
 
 ## 4.1 핵심 모델
 
-Lift의 1급 모델은 다음 세 가지다.
+이번 MVP의 1급 모델은 다음 두 계열이다.
 
-1. **Duality R-learner**
+1. **Baselines**
+   - random ranking, response model, T-learner, profit ranking을 비교 기준으로 제공한다.
+   - 제품 차별점이 아니라 sanity check와 leaderboard 기준 역할을 한다.
+
+2. **Duality R-learner**
    - gain CATE와 cost CATE를 각각 또는 결합 형태로 추정한다.
    - 예산 제약을 Lagrangian multiplier로 반영한다.
    - ranking score는 기본적으로 `tau_gain(x) - lambda * tau_cost(x)` 계열이어야 한다.
 
-2. **Direct Ranking**
+Post-MVP 후보:
+
+1. **Direct Ranking**
    - CATE point estimate의 정확도보다 aggregate portfolio effectiveness를 직접 최적화한다.
    - score function `f(x)`를 학습하고, score 기반 cohort의 incremental gain/cost ratio를 objective로 둔다.
 
-3. **Constrained Ranking**
+2. **Constrained Ranking**
    - Direct Ranking에 quantile 또는 budget constraint를 직접 반영한다.
    - top quantile, fixed budget, ROI threshold 같은 제약을 soft constraint 또는 annealing으로 학습한다.
 
@@ -156,13 +162,11 @@ Lift는 다음 결과를 자동 생성해야 한다.
 4. propensity 및 overlap 진단
 5. 전체 캠페인 incremental ROI 분석
 6. Duality R-learner 학습
-7. Direct Ranking 학습
-8. Constrained Ranking 학습
-9. baseline 모델과 cost-aware 모델 비교
-10. Cost Curve, AUCC, iRoI, CPiA 계산
-11. 예산별 target count와 expected value 계산
-12. 대상자 리스트 export
-13. 리포트와 provenance artifact 생성
+7. baseline 모델과 cost-aware 모델 비교
+8. Cost Curve, AUCC, iRoI, CPiA 계산
+9. 예산별 target count와 expected value 계산
+10. 대상자 리스트 export
+11. 리포트와 provenance artifact 생성
 
 ---
 
@@ -178,7 +182,9 @@ Lift는 다음 결과를 자동 생성해야 한다.
 - customer-level target ranking
 - budget / ROI / target-ratio constraint
 - local CLI
-- MCP tool interface
+- local REPL
+- one-line installer
+- Codex/Claude용 skills/prompts 설치 산출물
 - Markdown/JSON/CSV artifact
 
 ## 7.2 MVP 제외 범위
@@ -188,6 +194,7 @@ Lift는 다음 결과를 자동 생성해야 한다.
 - 온라인 실시간 serving
 - 자동 캠페인 집행
 - 외부 warehouse 직접 연결
+- MCP server interface
 - 의료/금융/채용/정치 등 고위험 의사결정
 
 ## 7.3 Post-MVP 후보
@@ -196,6 +203,8 @@ Lift는 다음 결과를 자동 생성해야 한다.
 - bucketized continuous treatment
 - policy tree / rule extraction 고도화
 - model distillation
+- Direct Ranking
+- Constrained Ranking
 - notebook integration
 - local web preview
 
@@ -215,7 +224,8 @@ Lift는 다음 결과를 자동 생성해야 한다.
 ### ML 엔지니어
 
 - 로컬 분석 파이프라인 구성
-- MCP tool 기반 자동화
+- CLI/REPL 기반 자동화
+- Codex/Claude skills 기반 분석 보조
 - 모델 artifact/export 구성
 - custom estimator 연결
 
@@ -388,6 +398,8 @@ Core commands:
 ```
 lift
 lift chat [prompt]
+lift setup
+lift quickstart
 lift analyze <dataset>
 lift simulate <run-id>
 lift report <run-id>
@@ -427,6 +439,15 @@ Flags:
 - low-trust 분석은 “확정적 추천”처럼 표현하지 않는다.
 - 모든 run은 재현 가능한 artifact를 남긴다.
 
+## 13.4 Agent integration
+
+Codex/Claude 연동은 MCP 서버가 아니라 Feynman식 skills/prompts 설치를 기준으로 한다.
+
+- Codex user-level: `~/.codex/skills/lift`
+- repo-local agent: `.agents/skills/lift`
+- skill은 `lift doctor`, `lift quickstart`, `lift analyze`, `lift report`, `lift export-targets` 사용법을 안내한다.
+- agent는 계산을 직접 추정하지 않고 Lift artifact를 읽어 설명한다.
+
 ---
 
 # 14. 산출물
@@ -452,10 +473,10 @@ outputs/<slug>/provenance.md
 MVP는 다음을 만족하면 된다.
 
 1. randomized binary campaign 데이터에서 end-to-end 분석을 완료한다.
-2. Duality R-learner, Direct Ranking, Constrained Ranking을 core model로 실행한다.
+2. Baselines와 Duality R-learner를 core model로 실행한다.
 3. Cost Curve, AUCC, iRoI, CPiA를 계산한다.
 4. 예산/ROI 제약을 만족하는 target list를 생성한다.
 5. Causal Trust Layer가 leakage, overlap, hidden confounding risk를 보고한다.
 6. `fractional_uplift` 없이도 core workflow가 동작한다.
-7. Feynman식 CLI/REPL workflow와 artifact 출력 규칙을 제공한다.
-
+7. Feynman식 standalone CLI/REPL workflow와 artifact 출력 규칙을 제공한다.
+8. Codex/Claude용 Lift skills/prompts 설치 산출물을 제공한다.

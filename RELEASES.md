@@ -6,4 +6,4 @@
 - Baseline and Duality R-learner workflow.
 - scikit-learn based preprocessing and configurable estimators.
 - Trust diagnostics, ranking evaluation, budget simulation, target export, report generation.
-- REPL and stdio MCP server.
+- REPL, installer, quickstart, and packaged example workflow.

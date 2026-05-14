@@ -84,23 +84,7 @@ lift> /outputs
 lift> /exit
 ```
 
-Run the stdio MCP server:
-
-```bash
-lift mcp
-```
-
-Implemented MCP tools:
-
-- `inspect_dataset`
-- `validate_dataset`
-- `validate_causal_assumptions`
-- `analyze_campaign`
-- `simulate_budget`
-- `generate_report`
-- `export_targets`
-- `list_outputs`
-- `doctor`
+Lift is designed as a standalone local CLI/runtime. Codex and Claude integration should use Lift skills and prompts, not an MCP server.
 
 ## Fixtures
 

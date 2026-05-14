@@ -9,10 +9,11 @@
 이 문서는 Lift가 PRD/TRD의 핵심 요구사항을 만족하는지 검증하기 위한 테스트 계획이다. 테스트의 중심은 다음이다.
 
 - `fractional_uplift` 없이 core workflow가 동작하는가
-- Duality R-learner, Direct Ranking, Constrained Ranking이 실행되는가
+- Baselines와 Duality R-learner가 실행되는가
 - Cost Curve, AUCC, iRoI, CPiA가 정확하게 계산되는가
 - 예산/ROI 제약을 위반하지 않는 target list가 생성되는가
-- Feynman식 CLI/REPL/MCP UX가 같은 core engine을 사용하는가
+- Feynman식 CLI/REPL UX가 같은 core engine을 사용하는가
+- Codex/Claude skills가 Lift CLI와 artifact를 올바르게 안내하는가
 
 ---
 
@@ -30,7 +31,7 @@
 - budget simulation
 - target export
 - report/provenance artifact
-- CLI, REPL, MCP smoke tests
+- CLI, REPL, installer, skills smoke tests
 
 ## 2.2 Out of scope for MVP
 
@@ -295,7 +296,9 @@ Pass criteria:
 
 ## 6.2 Direct Ranking
 
-Test cases:
+Status: Post-MVP. MVP test runs must not require this model.
+
+Future test cases:
 
 - trains scoring network
 - supports propensity weighting
@@ -311,7 +314,9 @@ Pass criteria:
 
 ## 6.3 Constrained Ranking
 
-Test cases:
+Status: Post-MVP. MVP test runs must not require this model.
+
+Future test cases:
 
 - top quantile constraint
 - fixed budget constraint
@@ -401,24 +406,21 @@ Pass criteria:
 - both invoke the same core workflow
 - artifact structure is identical except run id/time
 
-## INT-005: MCP parity
+## INT-005: Skills installer
 
-MCP calls:
+Commands:
 
 ```
-inspect_dataset
-validate_causal_assumptions
-train_duality_r_learner
-train_direct_ranking
-train_constrained_ranking
-evaluate_rankings
-simulate_budget
-generate_report
+lift install-skills --target codex
+lift install-skills --target repo
 ```
 
 Pass criteria:
 
-- MCP outputs match CLI workflow outputs for the same config
+- Codex target writes `~/.codex/skills/lift/SKILL.md`
+- repo target writes `.agents/skills/lift/SKILL.md`
+- skill instructions call `lift doctor`, `lift quickstart`, `lift analyze`, `lift report`, and `lift export-targets`
+- skill instructions tell agents to read Lift artifacts instead of inventing metrics
 
 ---
 
@@ -466,10 +468,10 @@ MVP passes when:
 2. Observational analysis emits propensity and hidden confounding warnings.
 3. Low-overlap data is marked low trust or blocked.
 4. Leakage columns are excluded by default.
-5. Duality R-learner, Direct Ranking, and Constrained Ranking all produce finite scores.
+5. Baselines and Duality R-learner all produce finite scores.
 6. Cost Curve, AUCC, iRoI, CPiA, and budget frontier are generated.
 7. Budget simulation never exports a target list that violates hard budget.
 8. `fractional_uplift` is not required at runtime.
-9. CLI, REPL, and MCP use the same core workflow.
+9. CLI and REPL use the same core workflow.
 10. Re-running with the same seed produces equivalent model/evaluation artifacts within tolerance.
-
+11. Skills installation works for Codex user-level and repo-local targets.
