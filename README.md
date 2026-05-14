@@ -13,6 +13,7 @@ Current implementation scope:
 - Cost curve, AUCC, iRoI, CPiA evaluation
 - Local artifacts under `outputs/<run-id>/`
 - CLI simulation and target re-export from saved artifacts
+- YAML/JSON config files for schema, model, budget, and ROI settings
 
 `references/fractional_uplift` is reference-only and is not a runtime dependency.
 
@@ -28,6 +29,8 @@ python3 -m venv .venv
 ```bash
 .venv/bin/lift inspect data.csv
 .venv/bin/lift analyze data.csv --seed 123 --estimate-propensity
+.venv/bin/lift analyze data.csv --config configs/example.yaml
+.venv/bin/lift analyze data.csv --baseline-model random_forest --nuisance-model gradient_boosting
 .venv/bin/lift simulate <run-id> --budget 100000000 --min-roi 1.5
 .venv/bin/lift export-targets <run-id> --budget 100000000 --min-roi 1.5
 .venv/bin/lift report <run-id>
@@ -42,3 +45,11 @@ Small local fixtures are available for smoke testing:
 .venv/bin/lift analyze fixtures/randomized_coupon.csv
 .venv/bin/lift inspect fixtures/leakage_coupon.csv
 ```
+
+Supported regression estimators:
+
+- `ridge`
+- `random_forest`
+- `gradient_boosting`
+
+Config files can set logical column names, feature include/exclude lists, estimator types, and estimator params. See `configs/example.yaml`.

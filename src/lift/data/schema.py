@@ -65,6 +65,8 @@ def infer_schema(
     treatment_propensity: str = "treatment_propensity",
     sample_weight: str | None = "sample_weight",
     constraint_offset_kpi: str | None = None,
+    feature_columns: list[str] | None = None,
+    exclude_feature_columns: list[str] | None = None,
 ) -> Schema:
     if not rows:
         raise ValueError("Dataset is empty.")
@@ -84,12 +86,27 @@ def infer_schema(
     if constraint_offset_kpi:
         logical.add(constraint_offset_kpi)
 
-    leakage = [column for column in columns if _looks_like_leakage(column)]
-    feature_columns = [
+    explicit_exclusions = set(exclude_feature_columns or [])
+    leakage = [
         column
         for column in columns
-        if column not in logical and column not in leakage
+        if _looks_like_leakage(column) or column in explicit_exclusions
     ]
+    if feature_columns is None:
+        resolved_features = [
+            column
+            for column in columns
+            if column not in logical and column not in leakage
+        ]
+    else:
+        missing_features = [column for column in feature_columns if column not in columns]
+        if missing_features:
+            raise ValueError("Configured feature columns are missing: " + ", ".join(missing_features))
+        resolved_features = [
+            column
+            for column in feature_columns
+            if column not in logical and column not in leakage
+        ]
 
     return Schema(
         unit_id=unit_id,
@@ -99,7 +116,7 @@ def infer_schema(
         treatment_propensity=treatment_propensity,
         sample_weight=sample_weight,
         constraint_offset_kpi=constraint_offset_kpi,
-        feature_columns=feature_columns,
+        feature_columns=resolved_features,
         excluded_feature_columns=leakage,
     )
 

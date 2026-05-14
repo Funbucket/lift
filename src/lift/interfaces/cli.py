@@ -6,7 +6,7 @@ from typing import Any
 
 import typer
 
-from lift.data.load import load_csv, read_json
+from lift.data.load import load_csv, read_json, read_mapping
 from lift.data.schema import infer_schema, validate_rows
 from lift.workflow.run import AnalyzeConfig, analyze
 from lift.workflow.simulate import report_run, simulate_run
@@ -53,6 +53,10 @@ def analyze_dataset(
     lambda_grid: str | None = None,
     estimate_propensity: bool = False,
     validation_fraction: float | None = None,
+    baseline_model: str | None = None,
+    nuisance_model: str | None = None,
+    feature_columns: str | None = None,
+    exclude_feature_columns: str | None = None,
 ) -> None:
     try:
         config_values = _config_values(
@@ -69,6 +73,10 @@ def analyze_dataset(
             lambda_grid=lambda_grid,
             estimate_propensity=estimate_propensity,
             validation_fraction=validation_fraction,
+            baseline_model=baseline_model,
+            nuisance_model=nuisance_model,
+            feature_columns=feature_columns,
+            exclude_feature_columns=exclude_feature_columns,
         )
         _echo_json(analyze(dataset, AnalyzeConfig(**config_values)))
     except Exception as exc:
@@ -157,10 +165,14 @@ def _config_values(
     lambda_grid: str | None,
     estimate_propensity: bool,
     validation_fraction: float | None,
+    baseline_model: str | None,
+    nuisance_model: str | None,
+    feature_columns: str | None,
+    exclude_feature_columns: str | None,
 ) -> dict[str, Any]:
     values: dict[str, Any] = {}
     if config:
-        values.update(read_json(config))
+        values.update(read_mapping(config))
     cli_values: dict[str, Any] = {
         "seed": seed,
         "output_root": output_root,
@@ -173,11 +185,21 @@ def _config_values(
         "min_roi": min_roi,
         "estimate_propensity": estimate_propensity or None,
         "validation_fraction": validation_fraction,
+        "baseline_model": baseline_model,
+        "nuisance_model": nuisance_model,
     }
     if lambda_grid:
         cli_values["lambda_grid"] = tuple(float(value) for value in lambda_grid.split(",") if value.strip())
+    if feature_columns:
+        cli_values["feature_columns"] = _csv_list(feature_columns)
+    if exclude_feature_columns:
+        cli_values["exclude_feature_columns"] = _csv_list(exclude_feature_columns)
     values.update({key: value for key, value in cli_values.items() if value is not None})
     return values
+
+
+def _csv_list(value: str) -> list[str]:
+    return [item.strip() for item in value.split(",") if item.strip()]
 
 
 def _echo_json(payload: dict[str, Any]) -> None:

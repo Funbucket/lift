@@ -1,0 +1,28 @@
+seed: 123
+output_root: outputs
+unit_id: unit_id
+treatment: treatment
+treatment_propensity: treatment_propensity
+maximize_kpi: maximize_kpi
+constraint_kpi: constraint_kpi
+feature_columns:
+  - feature_1
+  - feature_2
+exclude_feature_columns: []
+budget: 5.0
+min_roi: 0.1
+estimate_propensity: false
+validation_fraction: 0.25
+lambda_grid: [0.0, 0.25, 0.5, 1.0, 2.0, 5.0]
+
+# Supported values: ridge, random_forest, gradient_boosting.
+baseline_model: random_forest
+baseline_model_params:
+  n_estimators: 50
+  min_samples_leaf: 2
+
+nuisance_model: gradient_boosting
+nuisance_model_params:
+  n_estimators: 50
+  learning_rate: 0.05
+  max_depth: 2

@@ -4,6 +4,7 @@ from typing import Any
 
 import pandas as pd
 from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import Pipeline
@@ -28,13 +29,49 @@ def treatment_vector(rows: list[dict[str, Any]], schema: Schema) -> list[int]:
     return [int(row[schema.treatment]) for row in rows]
 
 
-def regression_pipeline(rows: list[dict[str, Any]], schema: Schema, *, alpha: float = 1.0) -> Pipeline:
+SUPPORTED_REGRESSION_MODELS = {"ridge", "random_forest", "gradient_boosting"}
+
+
+def regression_pipeline(
+    rows: list[dict[str, Any]],
+    schema: Schema,
+    *,
+    model_type: str = "ridge",
+    model_params: dict[str, Any] | None = None,
+    seed: int = 123,
+    alpha: float = 1.0,
+) -> Pipeline:
     return Pipeline(
         steps=[
             ("preprocess", feature_preprocessor(rows, schema)),
-            ("model", Ridge(alpha=alpha)),
+            ("model", make_regressor(model_type, model_params=model_params, seed=seed, alpha=alpha)),
         ]
     )
+
+
+def make_regressor(
+    model_type: str,
+    *,
+    model_params: dict[str, Any] | None = None,
+    seed: int = 123,
+    alpha: float = 1.0,
+) -> Any:
+    params = dict(model_params or {})
+    if model_type == "ridge":
+        params.setdefault("alpha", alpha)
+        return Ridge(**params)
+    if model_type == "random_forest":
+        params.setdefault("n_estimators", 100)
+        params.setdefault("min_samples_leaf", 2)
+        params.setdefault("random_state", seed)
+        return RandomForestRegressor(**params)
+    if model_type == "gradient_boosting":
+        params.setdefault("n_estimators", 100)
+        params.setdefault("learning_rate", 0.05)
+        params.setdefault("max_depth", 3)
+        params.setdefault("random_state", seed)
+        return GradientBoostingRegressor(**params)
+    raise ValueError(f"Unsupported regression model '{model_type}'. Supported: {sorted(SUPPORTED_REGRESSION_MODELS)}")
 
 
 def feature_preprocessor(rows: list[dict[str, Any]], schema: Schema) -> ColumnTransformer:

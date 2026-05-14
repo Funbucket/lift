@@ -38,6 +38,44 @@ class CliTest(unittest.TestCase):
             self.assertEqual(len(payload["runs"]), 1)
             self.assertIn("trust_level", payload["runs"][0])
 
+    def test_yaml_config_can_select_estimators(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dataset = root / "coupon.csv"
+            config = root / "config.yaml"
+            _write_dataset(dataset)
+            config.write_text(
+                "\n".join(
+                    [
+                        "seed: 6",
+                        f"output_root: {root / 'outputs'}",
+                        "baseline_model: random_forest",
+                        "baseline_model_params:",
+                        "  n_estimators: 10",
+                        "  min_samples_leaf: 1",
+                        "nuisance_model: gradient_boosting",
+                        "nuisance_model_params:",
+                        "  n_estimators: 10",
+                        "  max_depth: 2",
+                        "feature_columns: [feature_1]",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            result = runner.invoke(app, ["analyze", str(dataset), "--config", str(config)])
+
+            self.assertEqual(result.exit_code, 0, result.output)
+            payload = json.loads(result.output)
+            models = json.loads(
+                (root / "outputs" / payload["run_id"] / "models.json").read_text(encoding="utf-8")
+            )
+            response = next(model for model in models["models"] if model["name"] == "response_model")
+            duality = next(model for model in models["models"] if model["name"] == "duality_r_learner")
+            self.assertEqual(response["metadata"]["estimator"], "random_forest")
+            self.assertEqual(duality["metadata"]["nuisance_estimator"], "gradient_boosting")
+
     def test_analyze_error_is_structured_json(self) -> None:
         runner = CliRunner()
         result = runner.invoke(app, ["analyze", "missing.csv"])

@@ -20,6 +20,8 @@ class DualityRLearner:
     min_denominator: float = 1e-3
     cross_fit_folds: int = 2
     seed: int = 123
+    nuisance_model: str = "ridge"
+    nuisance_model_params: dict[str, Any] | None = None
 
     def fit_predict(
         self,
@@ -67,6 +69,8 @@ class DualityRLearner:
                 "lambda_grid_results": grid_results,
                 "score_formula": "tau_gain - lambda * max(tau_cost, 0)",
                 "ridge_alpha": self.ridge_alpha,
+                "nuisance_estimator": self.nuisance_model,
+                "nuisance_estimator_params": self.nuisance_model_params or {},
                 "cross_fit_folds": min(self.cross_fit_folds, len(rows)),
                 "seed": self.seed,
                 "lambda_selection": "validation_aucc" if validation_indices else "in_sample_aucc",
@@ -92,7 +96,14 @@ class DualityRLearner:
             residualized_target.append((y_value - m_value) / residual_treatment)
             weights.append(residual_treatment * residual_treatment)
         features = feature_frame(rows, schema)
-        tau_model = regression_pipeline(rows, schema, alpha=self.ridge_alpha)
+        tau_model = regression_pipeline(
+            rows,
+            schema,
+            model_type=self.nuisance_model,
+            model_params=self.nuisance_model_params,
+            seed=self.seed,
+            alpha=self.ridge_alpha,
+        )
         tau_model.fit(features, residualized_target, model__sample_weight=np.asarray(weights))
         return tau_model.predict(features).tolist()
 
@@ -103,7 +114,14 @@ class DualityRLearner:
         outcome: list[float],
     ) -> list[float]:
         features = feature_frame(rows, schema)
-        base_model = regression_pipeline(rows, schema, alpha=self.ridge_alpha)
+        base_model = regression_pipeline(
+            rows,
+            schema,
+            model_type=self.nuisance_model,
+            model_params=self.nuisance_model_params,
+            seed=self.seed,
+            alpha=self.ridge_alpha,
+        )
         if len(rows) < 4 or self.cross_fit_folds <= 1:
             return base_model.fit(features, outcome).predict(features).tolist()
 

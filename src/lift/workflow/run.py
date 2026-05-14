@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -39,6 +39,12 @@ class AnalyzeConfig:
     lambda_grid: tuple[float, ...] = (0.0, 0.25, 0.5, 1.0, 2.0, 5.0)
     estimate_propensity: bool = False
     validation_fraction: float = 0.25
+    baseline_model: str = "ridge"
+    baseline_model_params: dict[str, Any] = field(default_factory=dict)
+    nuisance_model: str = "ridge"
+    nuisance_model_params: dict[str, Any] = field(default_factory=dict)
+    feature_columns: list[str] | None = None
+    exclude_feature_columns: list[str] = field(default_factory=list)
 
 
 def analyze(dataset_path: str | Path, config: AnalyzeConfig) -> dict[str, Any]:
@@ -50,6 +56,8 @@ def analyze(dataset_path: str | Path, config: AnalyzeConfig) -> dict[str, Any]:
         maximize_kpi=config.maximize_kpi,
         constraint_kpi=config.constraint_kpi,
         treatment_propensity=config.treatment_propensity,
+        feature_columns=config.feature_columns,
+        exclude_feature_columns=config.exclude_feature_columns,
     )
     validation = validate_rows(raw_rows, schema)
     if not validation["valid"]:
@@ -73,10 +81,21 @@ def analyze(dataset_path: str | Path, config: AnalyzeConfig) -> dict[str, Any]:
 
     trust = diagnose(rows, schema, validation)
     campaign = campaign_incrementality(rows, schema)
-    models = train_baselines(rows, schema, seed=config.seed)
+    models = train_baselines(
+        rows,
+        schema,
+        seed=config.seed,
+        model_type=config.baseline_model,
+        model_params=config.baseline_model_params,
+    )
     validation_indices = _validation_indices(len(rows), config.validation_fraction, config.seed)
     models.append(
-        DualityRLearner(lambda_grid=list(config.lambda_grid), seed=config.seed).fit_predict(
+        DualityRLearner(
+            lambda_grid=list(config.lambda_grid),
+            seed=config.seed,
+            nuisance_model=config.nuisance_model,
+            nuisance_model_params=config.nuisance_model_params,
+        ).fit_predict(
             rows,
             schema,
             validation_indices=validation_indices,

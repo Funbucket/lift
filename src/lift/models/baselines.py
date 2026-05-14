@@ -17,18 +17,33 @@ class ModelResult:
     metadata: dict[str, Any]
 
 
-def train_baselines(rows: list[dict[str, Any]], schema: Schema, *, seed: int) -> list[ModelResult]:
+def train_baselines(
+    rows: list[dict[str, Any]],
+    schema: Schema,
+    *,
+    seed: int,
+    model_type: str = "ridge",
+    model_params: dict[str, Any] | None = None,
+) -> list[ModelResult]:
     features = feature_frame(rows, schema)
     gain = outcome_vector(rows, schema.maximize_kpi)
     cost = outcome_vector(rows, schema.constraint_kpi)
     treatment = treatment_vector(rows, schema)
 
     random_scores = _random_scores(len(rows), seed)
-    response_model = regression_pipeline(rows, schema, alpha=1.0).fit(features, gain)
+    response_model = regression_pipeline(
+        rows,
+        schema,
+        model_type=model_type,
+        model_params=model_params,
+        seed=seed,
+        alpha=1.0,
+    ).fit(features, gain)
     response_scores = response_model.predict(features).tolist()
-    tau_gain = _t_learner_effect(rows, schema, gain, treatment)
-    tau_cost = _t_learner_effect(rows, schema, cost, treatment)
+    tau_gain = _t_learner_effect(rows, schema, gain, treatment, seed=seed, model_type=model_type, model_params=model_params)
+    tau_cost = _t_learner_effect(rows, schema, cost, treatment, seed=seed, model_type=model_type, model_params=model_params)
     profit = [g - c for g, c in zip(tau_gain, tau_cost)]
+    estimator_metadata = {"estimator": model_type, "estimator_params": model_params or {}}
 
     return [
         ModelResult(
@@ -43,28 +58,28 @@ def train_baselines(rows: list[dict[str, Any]], schema: Schema, *, seed: int) ->
             scores=response_scores,
             expected_incremental_gain=[0.0] * len(rows),
             expected_incremental_cost=[0.0] * len(rows),
-            metadata={"type": "baseline", "description": "Ranks by predicted maximize KPI response."},
+            metadata={"type": "baseline", "description": "Ranks by predicted maximize KPI response.", **estimator_metadata},
         ),
         ModelResult(
             name="t_learner_gain",
             scores=tau_gain,
             expected_incremental_gain=tau_gain,
             expected_incremental_cost=tau_cost,
-            metadata={"type": "baseline", "description": "T-learner for maximize KPI."},
+            metadata={"type": "baseline", "description": "T-learner for maximize KPI.", **estimator_metadata},
         ),
         ModelResult(
             name="t_learner_cost",
             scores=[-value for value in tau_cost],
             expected_incremental_gain=tau_gain,
             expected_incremental_cost=tau_cost,
-            metadata={"type": "baseline", "description": "Ranks by lower estimated incremental cost."},
+            metadata={"type": "baseline", "description": "Ranks by lower estimated incremental cost.", **estimator_metadata},
         ),
         ModelResult(
             name="profit_ranking",
             scores=profit,
             expected_incremental_gain=tau_gain,
             expected_incremental_cost=tau_cost,
-            metadata={"type": "baseline", "description": "T-learner gain minus cost."},
+            metadata={"type": "baseline", "description": "T-learner gain minus cost.", **estimator_metadata},
         ),
     ]
 
@@ -79,12 +94,30 @@ def _t_learner_effect(
     schema: Schema,
     target: list[float],
     treatment: list[int],
+    *,
+    seed: int,
+    model_type: str,
+    model_params: dict[str, Any] | None,
 ) -> list[float]:
     treated_rows = [row for row, flag in zip(rows, treatment) if flag == 1]
     treated_y = [value for value, flag in zip(target, treatment) if flag == 1]
     control_rows = [row for row, flag in zip(rows, treatment) if flag == 0]
     control_y = [value for value, flag in zip(target, treatment) if flag == 0]
-    treated_model = regression_pipeline(rows, schema, alpha=1.0).fit(feature_frame(treated_rows, schema), treated_y)
-    control_model = regression_pipeline(rows, schema, alpha=1.0).fit(feature_frame(control_rows, schema), control_y)
+    treated_model = regression_pipeline(
+        rows,
+        schema,
+        model_type=model_type,
+        model_params=model_params,
+        seed=seed,
+        alpha=1.0,
+    ).fit(feature_frame(treated_rows, schema), treated_y)
+    control_model = regression_pipeline(
+        rows,
+        schema,
+        model_type=model_type,
+        model_params=model_params,
+        seed=seed,
+        alpha=1.0,
+    ).fit(feature_frame(control_rows, schema), control_y)
     features = feature_frame(rows, schema)
     return (treated_model.predict(features) - control_model.predict(features)).tolist()

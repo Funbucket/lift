@@ -25,6 +25,16 @@ class FixtureTest(unittest.TestCase):
         self.assertIn("post_campaign_purchase_count", schema.excluded_feature_columns)
         self.assertIn("revenue_after_coupon", schema.excluded_feature_columns)
 
+    def test_explicit_feature_columns_and_exclusions(self) -> None:
+        rows = load_csv(Path("fixtures") / "randomized_coupon.csv")
+        schema = infer_schema(
+            rows,
+            feature_columns=["feature_1", "feature_2"],
+            exclude_feature_columns=["feature_2"],
+        )
+        self.assertEqual(schema.feature_columns, ["feature_1"])
+        self.assertIn("feature_2", schema.excluded_feature_columns)
+
 
 if __name__ == "__main__":
     unittest.main()
