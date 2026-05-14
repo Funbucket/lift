@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lift.data.schema import Schema
-from lift.models.linear import FeatureEncoder, RidgeRegressor
+from lift.models.sklearn_utils import feature_frame, outcome_vector, regression_pipeline, treatment_vector
 
 
 @dataclass
@@ -18,16 +18,16 @@ class ModelResult:
 
 
 def train_baselines(rows: list[dict[str, Any]], schema: Schema, *, seed: int) -> list[ModelResult]:
-    encoder = FeatureEncoder(schema.feature_columns).fit(rows)
-    matrix = encoder.transform(rows)
-    gain = [float(row[schema.maximize_kpi]) for row in rows]
-    cost = [float(row[schema.constraint_kpi]) for row in rows]
-    treatment = [int(row[schema.treatment]) for row in rows]
+    features = feature_frame(rows, schema)
+    gain = outcome_vector(rows, schema.maximize_kpi)
+    cost = outcome_vector(rows, schema.constraint_kpi)
+    treatment = treatment_vector(rows, schema)
 
     random_scores = _random_scores(len(rows), seed)
-    response_scores = RidgeRegressor(alpha=1.0).fit(matrix, gain).predict(matrix)
-    tau_gain = _t_learner_effect(matrix, gain, treatment)
-    tau_cost = _t_learner_effect(matrix, cost, treatment)
+    response_model = regression_pipeline(rows, schema, alpha=1.0).fit(features, gain)
+    response_scores = response_model.predict(features).tolist()
+    tau_gain = _t_learner_effect(rows, schema, gain, treatment)
+    tau_cost = _t_learner_effect(rows, schema, cost, treatment)
     profit = [g - c for g, c in zip(tau_gain, tau_cost)]
 
     return [
@@ -74,14 +74,17 @@ def _random_scores(size: int, seed: int) -> list[float]:
     return [generator.random() for _ in range(size)]
 
 
-def _t_learner_effect(matrix: list[list[float]], target: list[float], treatment: list[int]) -> list[float]:
-    treated_x = [row for row, flag in zip(matrix, treatment) if flag == 1]
+def _t_learner_effect(
+    rows: list[dict[str, Any]],
+    schema: Schema,
+    target: list[float],
+    treatment: list[int],
+) -> list[float]:
+    treated_rows = [row for row, flag in zip(rows, treatment) if flag == 1]
     treated_y = [value for value, flag in zip(target, treatment) if flag == 1]
-    control_x = [row for row, flag in zip(matrix, treatment) if flag == 0]
+    control_rows = [row for row, flag in zip(rows, treatment) if flag == 0]
     control_y = [value for value, flag in zip(target, treatment) if flag == 0]
-    treated_model = RidgeRegressor(alpha=1.0).fit(treated_x, treated_y)
-    control_model = RidgeRegressor(alpha=1.0).fit(control_x, control_y)
-    return [
-        treated_model.predict_one(row) - control_model.predict_one(row)
-        for row in matrix
-    ]
+    treated_model = regression_pipeline(rows, schema, alpha=1.0).fit(feature_frame(treated_rows, schema), treated_y)
+    control_model = regression_pipeline(rows, schema, alpha=1.0).fit(feature_frame(control_rows, schema), control_y)
+    features = feature_frame(rows, schema)
+    return (treated_model.predict(features) - control_model.predict(features)).tolist()

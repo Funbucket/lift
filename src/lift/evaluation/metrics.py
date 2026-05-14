@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from statistics import mean
 from typing import Any
 
 from lift.data.schema import Schema
@@ -9,10 +10,15 @@ from lift.data.schema import Schema
 def campaign_incrementality(rows: list[dict[str, Any]], schema: Schema) -> dict[str, Any]:
     gain = _incremental_mean(rows, schema, schema.maximize_kpi)
     cost = _incremental_mean(rows, schema, schema.constraint_kpi)
+    gain_ci = _difference_in_means_ci(rows, schema, schema.maximize_kpi)
+    cost_ci = _difference_in_means_ci(rows, schema, schema.constraint_kpi)
     return {
         "incremental_maximize_kpi": gain,
         "incremental_constraint_kpi": cost,
         "incremental_roi": _safe_divide(gain, cost),
+        "incremental_maximize_kpi_ci95": gain_ci,
+        "incremental_constraint_kpi_ci95": cost_ci,
+        "confidence_interval_method": "normal_approx_difference_in_means" if gain_ci else "unsupported",
         "treatment_count": sum(1 for row in rows if int(row[schema.treatment]) == 1),
         "control_count": sum(1 for row in rows if int(row[schema.treatment]) == 0),
     }
@@ -36,8 +42,12 @@ def evaluate_ranking(rows: list[dict[str, Any]], schema: Schema, scores: list[fl
                 "cpia": _safe_divide(inc_cost, inc_gain),
             }
         )
+    auuc = _area_under_curve(curve, "target_share", "incremental_gain")
+    qini = _qini_area(curve)
     return {
-        "aucc": _area_under_curve(curve, "target_share", "incremental_gain"),
+        "aucc": auuc,
+        "auuc": auuc,
+        "qini": qini,
         "max_incremental_gain": max((point["incremental_gain"] for point in curve), default=0.0),
         "max_incremental_roi": max(
             (point["incremental_roi"] for point in curve if math.isfinite(point["incremental_roi"])),
@@ -160,6 +170,45 @@ def _area_under_curve(curve: list[dict[str, float]], x_key: str, y_key: str) -> 
         previous_x = x_value
         previous_y = y_value
     return area
+
+
+def _qini_area(curve: list[dict[str, float]]) -> float:
+    if not curve:
+        return 0.0
+    final_gain = curve[-1]["incremental_gain"]
+    adjusted_curve = [
+        {
+            "target_share": point["target_share"],
+            "qini_gain": point["incremental_gain"] - final_gain * point["target_share"],
+        }
+        for point in curve
+    ]
+    return _area_under_curve(adjusted_curve, "target_share", "qini_gain")
+
+
+def _difference_in_means_ci(rows: list[dict[str, Any]], schema: Schema, column: str) -> dict[str, float] | None:
+    if not _constant_propensity(rows, schema):
+        return None
+    treated = [float(row[column]) for row in rows if int(row[schema.treatment]) == 1]
+    control = [float(row[column]) for row in rows if int(row[schema.treatment]) == 0]
+    if len(treated) < 2 or len(control) < 2:
+        return None
+    diff = mean(treated) - mean(control)
+    standard_error = ((_variance(treated) / len(treated)) + (_variance(control) / len(control))) ** 0.5
+    margin = 1.96 * standard_error
+    return {"lower": diff - margin, "upper": diff + margin, "estimate": diff}
+
+
+def _constant_propensity(rows: list[dict[str, Any]], schema: Schema) -> bool:
+    values = [float(row[schema.treatment_propensity]) for row in rows]
+    return bool(values) and max(values) - min(values) < 1e-9
+
+
+def _variance(values: list[float]) -> float:
+    if len(values) < 2:
+        return 0.0
+    avg = mean(values)
+    return sum((value - avg) ** 2 for value in values) / (len(values) - 1)
 
 
 def _target_count_at_max(curve: list[dict[str, float]], key: str) -> int:

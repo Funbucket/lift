@@ -46,6 +46,7 @@ class WorkflowTest(unittest.TestCase):
             for name in [
                 "run.json",
                 "schema.json",
+                "propensity.json",
                 "trust.json",
                 "campaign_incrementality.json",
                 "models.json",

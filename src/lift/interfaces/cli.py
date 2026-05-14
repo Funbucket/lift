@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import argparse
 import json
 from pathlib import Path
 from typing import Any
+
+import typer
 
 from lift.data.load import load_csv, read_json
 from lift.data.schema import infer_schema, validate_rows
@@ -11,122 +12,167 @@ from lift.workflow.run import AnalyzeConfig, analyze
 from lift.workflow.simulate import report_run, simulate_run
 
 
+app = typer.Typer(no_args_is_help=True)
+
+
+@app.command("inspect")
+def inspect_dataset(
+    dataset: Path,
+    unit_id: str = "unit_id",
+    treatment: str = "treatment",
+    maximize_kpi: str = "maximize_kpi",
+    constraint_kpi: str = "constraint_kpi",
+    propensity: str = "treatment_propensity",
+) -> None:
+    rows = load_csv(dataset)
+    schema = infer_schema(
+        rows,
+        unit_id=unit_id,
+        treatment=treatment,
+        maximize_kpi=maximize_kpi,
+        constraint_kpi=constraint_kpi,
+        treatment_propensity=propensity,
+    )
+    validation = validate_rows(rows, schema)
+    _echo_json({"rows": len(rows), "schema": schema.to_dict(), "validation": validation})
+
+
+@app.command("analyze")
+def analyze_dataset(
+    dataset: Path,
+    config: Path | None = None,
+    seed: int | None = None,
+    output_root: str | None = None,
+    unit_id: str | None = None,
+    treatment: str | None = None,
+    maximize_kpi: str | None = None,
+    constraint_kpi: str | None = None,
+    propensity: str | None = None,
+    budget: float | None = None,
+    min_roi: float | None = None,
+    lambda_grid: str | None = None,
+    estimate_propensity: bool = False,
+    validation_fraction: float | None = None,
+) -> None:
+    config_values = _config_values(
+        config=config,
+        seed=seed,
+        output_root=output_root,
+        unit_id=unit_id,
+        treatment=treatment,
+        maximize_kpi=maximize_kpi,
+        constraint_kpi=constraint_kpi,
+        propensity=propensity,
+        budget=budget,
+        min_roi=min_roi,
+        lambda_grid=lambda_grid,
+        estimate_propensity=estimate_propensity,
+        validation_fraction=validation_fraction,
+    )
+    _echo_json(analyze(dataset, AnalyzeConfig(**config_values)))
+
+
+@app.command("simulate")
+def simulate(
+    run_id: str,
+    output_root: str = "outputs",
+    budget: float | None = None,
+    min_roi: float | None = None,
+) -> None:
+    _echo_json(
+        simulate_run(
+            run_id,
+            output_root=output_root,
+            budget=budget,
+            min_roi=min_roi,
+            write_artifacts=True,
+        )
+    )
+
+
+@app.command("export-targets")
+def export_targets(
+    run_id: str,
+    output_root: str = "outputs",
+    budget: float | None = None,
+    min_roi: float | None = None,
+) -> None:
+    result = simulate_run(
+        run_id,
+        output_root=output_root,
+        budget=budget,
+        min_roi=min_roi,
+        write_artifacts=True,
+    )
+    _echo_json({"targets_path": str(Path(output_root) / run_id / "targets.csv"), **result})
+
+
+@app.command("report")
+def report(run_id: str, output_root: str = "outputs") -> None:
+    typer.echo(report_run(run_id, output_root=output_root))
+
+
+@app.command("outputs")
+def outputs(output_root: str = "outputs") -> None:
+    root = Path(output_root)
+    runs = sorted(path.name for path in root.iterdir() if path.is_dir()) if root.exists() else []
+    _echo_json({"runs": runs})
+
+
+@app.command("doctor")
+def doctor() -> None:
+    _echo_json({"status": "ok", "fractional_uplift_runtime_dependency": False})
+
+
+@app.command("status")
+def status() -> None:
+    _echo_json({"status": "ready"})
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="lift")
-    subcommands = parser.add_subparsers(dest="command", required=True)
-
-    inspect_parser = subcommands.add_parser("inspect")
-    inspect_parser.add_argument("dataset")
-    inspect_parser.add_argument("--unit-id", default="unit_id")
-    inspect_parser.add_argument("--treatment", default="treatment")
-    inspect_parser.add_argument("--maximize-kpi", default="maximize_kpi")
-    inspect_parser.add_argument("--constraint-kpi", default="constraint_kpi")
-    inspect_parser.add_argument("--propensity", default="treatment_propensity")
-
-    analyze_parser = subcommands.add_parser("analyze")
-    analyze_parser.add_argument("dataset")
-    analyze_parser.add_argument("--config")
-    analyze_parser.add_argument("--seed", type=int)
-    analyze_parser.add_argument("--output-root")
-    analyze_parser.add_argument("--unit-id")
-    analyze_parser.add_argument("--treatment")
-    analyze_parser.add_argument("--maximize-kpi")
-    analyze_parser.add_argument("--constraint-kpi")
-    analyze_parser.add_argument("--propensity")
-    analyze_parser.add_argument("--budget", type=float)
-    analyze_parser.add_argument("--min-roi", type=float)
-    analyze_parser.add_argument("--lambda-grid")
-
-    simulate_parser = subcommands.add_parser("simulate")
-    simulate_parser.add_argument("run_id")
-    simulate_parser.add_argument("--output-root", default="outputs")
-    simulate_parser.add_argument("--budget", type=float)
-    simulate_parser.add_argument("--min-roi", type=float)
-
-    export_parser = subcommands.add_parser("export-targets")
-    export_parser.add_argument("run_id")
-    export_parser.add_argument("--output-root", default="outputs")
-    export_parser.add_argument("--budget", type=float)
-    export_parser.add_argument("--min-roi", type=float)
-
-    report_parser = subcommands.add_parser("report")
-    report_parser.add_argument("run_id")
-    report_parser.add_argument("--output-root", default="outputs")
-
-    outputs_parser = subcommands.add_parser("outputs")
-    outputs_parser.add_argument("--output-root", default="outputs")
-    subcommands.add_parser("doctor")
-    subcommands.add_parser("status")
-
-    args = parser.parse_args()
-    if args.command == "inspect":
-        rows = load_csv(args.dataset)
-        schema = infer_schema(
-            rows,
-            unit_id=args.unit_id,
-            treatment=args.treatment,
-            maximize_kpi=args.maximize_kpi,
-            constraint_kpi=args.constraint_kpi,
-            treatment_propensity=args.propensity,
-        )
-        validation = validate_rows(rows, schema)
-        print(json.dumps({"rows": len(rows), "schema": schema.to_dict(), "validation": validation}, indent=2))
-    elif args.command == "analyze":
-        config_values = _config_values(args)
-        result = analyze(
-            args.dataset,
-            AnalyzeConfig(**config_values),
-        )
-        print(json.dumps(result, indent=2))
-    elif args.command == "simulate":
-        result = simulate_run(
-            args.run_id,
-            output_root=args.output_root,
-            budget=args.budget,
-            min_roi=args.min_roi,
-            write_artifacts=True,
-        )
-        print(json.dumps(result, indent=2))
-    elif args.command == "export-targets":
-        result = simulate_run(
-            args.run_id,
-            output_root=args.output_root,
-            budget=args.budget,
-            min_roi=args.min_roi,
-            write_artifacts=True,
-        )
-        print(json.dumps({"targets_path": str(Path(args.output_root) / args.run_id / "targets.csv"), **result}, indent=2))
-    elif args.command == "report":
-        print(report_run(args.run_id, output_root=args.output_root))
-    elif args.command == "outputs":
-        root = Path(args.output_root)
-        runs = sorted(path.name for path in root.iterdir() if path.is_dir()) if root.exists() else []
-        print(json.dumps({"runs": runs}, indent=2))
-    elif args.command == "doctor":
-        print(json.dumps({"status": "ok", "fractional_uplift_runtime_dependency": False}, indent=2))
-    elif args.command == "status":
-        print(json.dumps({"status": "ready"}, indent=2))
+    app()
 
 
-def _config_values(args: argparse.Namespace) -> dict[str, Any]:
+def _config_values(
+    *,
+    config: Path | None,
+    seed: int | None,
+    output_root: str | None,
+    unit_id: str | None,
+    treatment: str | None,
+    maximize_kpi: str | None,
+    constraint_kpi: str | None,
+    propensity: str | None,
+    budget: float | None,
+    min_roi: float | None,
+    lambda_grid: str | None,
+    estimate_propensity: bool,
+    validation_fraction: float | None,
+) -> dict[str, Any]:
     values: dict[str, Any] = {}
-    if args.config:
-        values.update(read_json(args.config))
-    cli_values = {
-        "seed": args.seed,
-        "output_root": args.output_root,
-        "unit_id": args.unit_id,
-        "treatment": args.treatment,
-        "maximize_kpi": args.maximize_kpi,
-        "constraint_kpi": args.constraint_kpi,
-        "treatment_propensity": args.propensity,
-        "budget": args.budget,
-        "min_roi": args.min_roi,
+    if config:
+        values.update(read_json(config))
+    cli_values: dict[str, Any] = {
+        "seed": seed,
+        "output_root": output_root,
+        "unit_id": unit_id,
+        "treatment": treatment,
+        "maximize_kpi": maximize_kpi,
+        "constraint_kpi": constraint_kpi,
+        "treatment_propensity": propensity,
+        "budget": budget,
+        "min_roi": min_roi,
+        "estimate_propensity": estimate_propensity or None,
+        "validation_fraction": validation_fraction,
     }
-    if args.lambda_grid:
-        cli_values["lambda_grid"] = tuple(float(value) for value in args.lambda_grid.split(",") if value.strip())
+    if lambda_grid:
+        cli_values["lambda_grid"] = tuple(float(value) for value in lambda_grid.split(",") if value.strip())
     values.update({key: value for key, value in cli_values.items() if value is not None})
     return values
+
+
+def _echo_json(payload: dict[str, Any]) -> None:
+    typer.echo(json.dumps(payload, indent=2))
 
 
 if __name__ == "__main__":

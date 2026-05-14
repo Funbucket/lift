@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from sklearn.model_selection import train_test_split
+
 from lift import __version__
 from lift.data.load import dataset_fingerprint, load_csv, write_csv
 from lift.data.schema import Schema, infer_schema, prepare_rows, validate_rows
@@ -12,6 +14,7 @@ from lift.evaluation.metrics import budget_frontier, campaign_incrementality, ev
 from lift.models.baselines import ModelResult, train_baselines
 from lift.models.duality import DualityRLearner
 from lift.trust.diagnostics import diagnose
+from lift.trust.propensity import apply_propensity_estimates, estimate_propensity
 from lift.workflow.artifacts import ArtifactStore
 from lift.workflow.simulate import POLICY_SCORE_FIELDS, TARGET_FIELDS
 
@@ -28,6 +31,8 @@ class AnalyzeConfig:
     budget: float | None = None
     min_roi: float | None = None
     lambda_grid: tuple[float, ...] = (0.0, 0.25, 0.5, 1.0, 2.0, 5.0)
+    estimate_propensity: bool = False
+    validation_fraction: float = 0.25
 
 
 def analyze(dataset_path: str | Path, config: AnalyzeConfig) -> dict[str, Any]:
@@ -45,11 +50,31 @@ def analyze(dataset_path: str | Path, config: AnalyzeConfig) -> dict[str, Any]:
         raise ValueError("; ".join(validation["errors"]))
 
     rows = prepare_rows(raw_rows, schema)
+    propensity_payload: dict[str, Any] = {
+        "source": "provided_or_inferred",
+        "estimated": False,
+        "feature_columns": schema.feature_columns,
+    }
+    if config.estimate_propensity:
+        propensity_result = estimate_propensity(rows, schema, seed=config.seed)
+        rows = apply_propensity_estimates(rows, schema, propensity_result["propensity"])
+        propensity_payload = {
+            key: value
+            for key, value in propensity_result.items()
+            if key != "propensity"
+        }
+        propensity_payload["estimated"] = True
+
     trust = diagnose(rows, schema, validation)
     campaign = campaign_incrementality(rows, schema)
     models = train_baselines(rows, schema, seed=config.seed)
+    validation_indices = _validation_indices(len(rows), config.validation_fraction, config.seed)
     models.append(
-        DualityRLearner(lambda_grid=list(config.lambda_grid), seed=config.seed).fit_predict(rows, schema)
+        DualityRLearner(lambda_grid=list(config.lambda_grid), seed=config.seed).fit_predict(
+            rows,
+            schema,
+            validation_indices=validation_indices,
+        )
     )
 
     evaluations = {
@@ -95,6 +120,7 @@ def analyze(dataset_path: str | Path, config: AnalyzeConfig) -> dict[str, Any]:
 
     store.write_json(run_id, "run.json", run_payload)
     store.write_json(run_id, "schema.json", schema.to_dict())
+    store.write_json(run_id, "propensity.json", propensity_payload)
     store.write_json(run_id, "trust.json", trust)
     store.write_json(run_id, "campaign_incrementality.json", campaign)
     store.write_json(run_id, "models.json", model_payload)
@@ -160,10 +186,26 @@ def _run_id(path: Path, seed: int) -> str:
     return f"{path.stem}-{timestamp}-s{seed}"
 
 
+def _validation_indices(size: int, validation_fraction: float, seed: int) -> set[int]:
+    if size < 4 or validation_fraction <= 0.0:
+        return set()
+    validation_count = max(2, int(size * validation_fraction))
+    validation_count = min(validation_count, size - 2)
+    indices = list(range(size))
+    _train, validation = train_test_split(
+        indices,
+        test_size=validation_count,
+        random_state=seed,
+        shuffle=True,
+    )
+    return {int(index) for index in validation}
+
+
 def _artifact_names() -> tuple[str, ...]:
     return (
         "run.json",
         "schema.json",
+        "propensity.json",
         "trust.json",
         "campaign_incrementality.json",
         "models.json",

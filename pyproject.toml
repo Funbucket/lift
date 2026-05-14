@@ -8,7 +8,17 @@ version = "0.1.0"
 description = "Local cost-aware incrementality decision agent"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+  "numpy>=2.0",
+  "pandas>=2.2",
+  "scikit-learn>=1.5",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
 
 [project.scripts]
 lift = "lift.interfaces.cli:main"
