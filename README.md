@@ -45,6 +45,12 @@ lift doctor
 .venv/bin/lift version
 ```
 
+Run a packaged example end-to-end:
+
+```bash
+.venv/bin/lift quickstart
+```
+
 Run `lift` with no command to open the local REPL:
 
 ```text

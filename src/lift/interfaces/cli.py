@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from importlib.resources import as_file, files
 from pathlib import Path
 from typing import Any
 
@@ -153,6 +154,30 @@ def outputs(output_root: str = default_output_root()) -> None:
 @app.command("doctor")
 def doctor() -> None:
     _echo_json(doctor_report())
+
+
+@app.command("quickstart")
+def quickstart(
+    output_root: str | None = None,
+    seed: int = 123,
+    budget: float = 5.0,
+    min_roi: float = 0.1,
+) -> None:
+    try:
+        example = files("lift.examples").joinpath("randomized_coupon.csv")
+        with as_file(example) as dataset:
+            result = analyze(
+                dataset,
+                AnalyzeConfig(
+                    seed=seed,
+                    output_root=output_root or default_output_root(),
+                    budget=budget,
+                    min_roi=min_roi,
+                ),
+            )
+        _echo_json({"dataset": "builtin:randomized_coupon", **result})
+    except Exception as exc:
+        _exit_error("quickstart_failed", str(exc))
 
 
 @app.command("status")

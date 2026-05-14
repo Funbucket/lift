@@ -111,6 +111,28 @@ class CliTest(unittest.TestCase):
         self.assertFalse(payload["fractional_uplift_runtime_dependency"])
         self.assertIn("dependencies", payload)
 
+    def test_quickstart_runs_packaged_example(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_root = Path(temp_dir) / "outputs"
+            result = runner.invoke(
+                app,
+                [
+                    "quickstart",
+                    "--output-root",
+                    str(output_root),
+                    "--budget",
+                    "5",
+                    "--min-roi",
+                    "0.1",
+                ],
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            payload = json.loads(result.output)
+            self.assertEqual(payload["dataset"], "builtin:randomized_coupon")
+            self.assertEqual(payload["primary_model"], "duality_r_learner")
+            self.assertTrue((output_root / payload["run_id"] / "report.md").exists())
+
 
 def _write_dataset(path: Path) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
