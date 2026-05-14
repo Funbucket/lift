@@ -19,6 +19,7 @@ from lift.evaluation.metrics import (
 )
 from lift.models.baselines import ModelResult, train_baselines
 from lift.models.duality import DualityRLearner
+from lift.system.paths import default_output_root
 from lift.trust.diagnostics import diagnose
 from lift.trust.propensity import apply_propensity_estimates, estimate_propensity
 from lift.workflow.artifacts import ArtifactStore
@@ -29,7 +30,7 @@ from lift.workflow.simulate import POLICY_SCORE_FIELDS, TARGET_FIELDS
 @dataclass
 class AnalyzeConfig:
     seed: int = 123
-    output_root: str = "outputs"
+    output_root: str = field(default_factory=default_output_root)
     maximize_kpi: str = "maximize_kpi"
     constraint_kpi: str = "constraint_kpi"
     treatment: str = "treatment"

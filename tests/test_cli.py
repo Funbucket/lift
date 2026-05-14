@@ -102,6 +102,15 @@ class CliTest(unittest.TestCase):
         payload = json.loads(result.output)
         self.assertEqual(payload["error"]["code"], "analyze_failed")
 
+    def test_doctor_reports_runtime_status(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(app, ["doctor"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        payload = json.loads(result.output)
+        self.assertIn(payload["status"], {"ok", "warning"})
+        self.assertFalse(payload["fractional_uplift_runtime_dependency"])
+        self.assertIn("dependencies", payload)
+
 
 def _write_dataset(path: Path) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:

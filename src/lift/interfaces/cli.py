@@ -8,6 +8,8 @@ import typer
 
 from lift.data.load import load_csv, read_json, read_mapping
 from lift.data.schema import infer_schema, validate_rows
+from lift.system.doctor import doctor_report
+from lift.system.paths import default_output_root
 from lift.workflow.run import AnalyzeConfig, analyze
 from lift.workflow.simulate import refresh_report, report_run, simulate_run
 
@@ -86,7 +88,7 @@ def analyze_dataset(
 @app.command("simulate")
 def simulate(
     run_id: str,
-    output_root: str = "outputs",
+    output_root: str = default_output_root(),
     budget: float | None = None,
     min_roi: float | None = None,
 ) -> None:
@@ -107,7 +109,7 @@ def simulate(
 @app.command("export-targets")
 def export_targets(
     run_id: str,
-    output_root: str = "outputs",
+    output_root: str = default_output_root(),
     budget: float | None = None,
     min_roi: float | None = None,
 ) -> None:
@@ -125,7 +127,7 @@ def export_targets(
 
 
 @app.command("report")
-def report(run_id: str, output_root: str = "outputs", refresh: bool = False) -> None:
+def report(run_id: str, output_root: str = default_output_root(), refresh: bool = False) -> None:
     if refresh:
         typer.echo(refresh_report(run_id, output_root=output_root))
     else:
@@ -133,7 +135,7 @@ def report(run_id: str, output_root: str = "outputs", refresh: bool = False) -> 
 
 
 @app.command("outputs")
-def outputs(output_root: str = "outputs") -> None:
+def outputs(output_root: str = default_output_root()) -> None:
     root = Path(output_root)
     runs = [_run_summary(path) for path in sorted(root.iterdir()) if path.is_dir()] if root.exists() else []
     _echo_json({"runs": runs})
@@ -141,7 +143,7 @@ def outputs(output_root: str = "outputs") -> None:
 
 @app.command("doctor")
 def doctor() -> None:
-    _echo_json({"status": "ok", "fractional_uplift_runtime_dependency": False})
+    _echo_json(doctor_report())
 
 
 @app.command("status")

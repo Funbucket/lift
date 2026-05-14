@@ -26,6 +26,13 @@ python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 ```
 
+Or install a user launcher from the repo root:
+
+```bash
+sh scripts/install/install.sh
+lift doctor
+```
+
 ```bash
 .venv/bin/lift inspect data.csv
 .venv/bin/lift analyze data.csv --seed 123 --estimate-propensity
@@ -53,3 +60,5 @@ Supported regression estimators:
 - `gradient_boosting`
 
 Config files can set logical column names, feature include/exclude lists, estimator types, and estimator params. See `configs/example.yaml`.
+
+By default, installed runs write artifacts under `~/.lift/outputs`. Override with `--output-root`, `LIFT_HOME`, or `LIFT_OUTPUT_ROOT`.
