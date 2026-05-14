@@ -42,6 +42,7 @@ lift doctor
 .venv/bin/lift export-targets <run-id> --budget 100000000 --min-roi 1.5
 .venv/bin/lift report <run-id>
 .venv/bin/lift outputs
+.venv/bin/lift version
 ```
 
 Run `lift` with no command to open the local REPL:
@@ -89,3 +90,14 @@ Supported regression estimators:
 Config files can set logical column names, feature include/exclude lists, estimator types, and estimator params. See `configs/example.yaml`.
 
 By default, installed runs write artifacts under `~/.lift/outputs`. Override with `--output-root`, `LIFT_HOME`, or `LIFT_OUTPUT_ROOT`.
+
+## Build
+
+Create installable wheel and source distribution artifacts:
+
+```bash
+PYTHON_BIN=.venv/bin/python scripts/build.sh
+ls dist/
+```
+
+The build script runs bytecode compilation and the unit test suite before packaging.

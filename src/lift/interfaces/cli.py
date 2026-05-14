@@ -6,6 +6,7 @@ from typing import Any
 
 import typer
 
+from lift import __version__
 from lift.data.load import load_csv, read_json, read_mapping
 from lift.data.schema import infer_schema, validate_rows
 from lift.system.doctor import doctor_report
@@ -157,6 +158,11 @@ def doctor() -> None:
 @app.command("status")
 def status() -> None:
     _echo_json({"status": "ready"})
+
+
+@app.command("version")
+def version() -> None:
+    _echo_json({"version": __version__})
 
 
 @app.command("mcp")
