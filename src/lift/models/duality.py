@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import random
 from typing import Any
 
 from lift.data.schema import Schema
@@ -14,6 +15,8 @@ class DualityRLearner:
     lambda_grid: list[float]
     ridge_alpha: float = 1.0
     min_denominator: float = 1e-3
+    cross_fit_folds: int = 2
+    seed: int = 123
 
     def fit_predict(self, rows: list[dict[str, Any]], schema: Schema) -> ModelResult:
         encoder = FeatureEncoder(schema.feature_columns).fit(rows)
@@ -56,6 +59,8 @@ class DualityRLearner:
                 "lambda_grid_results": grid_results,
                 "score_formula": "tau_gain - lambda * max(tau_cost, 0)",
                 "ridge_alpha": self.ridge_alpha,
+                "cross_fit_folds": min(self.cross_fit_folds, len(rows)),
+                "seed": self.seed,
             },
         )
 
@@ -66,8 +71,7 @@ class DualityRLearner:
         propensity: list[float],
         outcome: list[float],
     ) -> list[float]:
-        mean_model = RidgeRegressor(alpha=self.ridge_alpha).fit(matrix, outcome)
-        mean_prediction = mean_model.predict(matrix)
+        mean_prediction = self._cross_fit_mean_prediction(matrix, outcome)
         residualized_target: list[float] = []
         weights: list[float] = []
         for flag, prop, y_value, m_value in zip(treatment, propensity, outcome, mean_prediction):
@@ -78,6 +82,35 @@ class DualityRLearner:
             weights.append(residual_treatment * residual_treatment)
         tau_model = RidgeRegressor(alpha=self.ridge_alpha).fit(matrix, residualized_target, weights)
         return tau_model.predict(matrix)
+
+    def _cross_fit_mean_prediction(
+        self,
+        matrix: list[list[float]],
+        outcome: list[float],
+    ) -> list[float]:
+        if len(matrix) < 4 or self.cross_fit_folds <= 1:
+            return RidgeRegressor(alpha=self.ridge_alpha).fit(matrix, outcome).predict(matrix)
+
+        fold_count = min(self.cross_fit_folds, len(matrix))
+        indices = list(range(len(matrix)))
+        random.Random(self.seed).shuffle(indices)
+        predictions = [0.0] * len(matrix)
+        for fold_index in range(fold_count):
+            validation_indices = {
+                index
+                for position, index in enumerate(indices)
+                if position % fold_count == fold_index
+            }
+            train_indices = [index for index in range(len(matrix)) if index not in validation_indices]
+            if not train_indices:
+                continue
+            model = RidgeRegressor(alpha=self.ridge_alpha).fit(
+                [matrix[index] for index in train_indices],
+                [outcome[index] for index in train_indices],
+            )
+            for index in validation_indices:
+                predictions[index] = model.predict_one(matrix[index])
+        return predictions
 
 
 def _clip(value: float, epsilon: float) -> float:

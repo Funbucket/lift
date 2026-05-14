@@ -1,0 +1,11 @@
+unit_id,treatment,treatment_propensity,maximize_kpi,constraint_kpi,sample_weight,feature_1,feature_2
+u001,1,0.80,6,1.0,1,8,loyal
+u002,1,0.75,5,1.1,1,7,loyal
+u003,1,0.70,4,1.6,1,6,loyal
+u004,0,0.30,2,0.0,1,2,new
+u005,0,0.25,1,0.0,1,1,new
+u006,0,0.20,2,0.0,1,2,new
+u007,1,0.65,5,2.0,1,6,mid
+u008,0,0.35,3,0.0,1,3,mid
+u009,1,0.60,4,2.5,1,5,mid
+u010,0,0.40,3,0.0,1,4,mid

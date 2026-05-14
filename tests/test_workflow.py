@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from lift.workflow.run import AnalyzeConfig, analyze
+from lift.workflow.simulate import simulate_run
 
 
 class WorkflowTest(unittest.TestCase):
@@ -50,12 +51,23 @@ class WorkflowTest(unittest.TestCase):
                 "models.json",
                 "evaluation.json",
                 "budget-frontier.csv",
+                "policy-scores.csv",
                 "targets.csv",
+                "simulation.json",
                 "report.md",
                 "provenance.md",
             ]:
                 self.assertTrue((run_dir / name).exists(), name)
             self.assertEqual(result["primary_model"], "duality_r_learner")
+
+            simulation = simulate_run(
+                result["run_id"],
+                output_root=str(root / "outputs"),
+                budget=10.0,
+                min_roi=0.1,
+            )
+            self.assertEqual(simulation["constraint_status"], "satisfied")
+            self.assertLessEqual(simulation["expected_incremental_cost"], 10.0)
 
 
 if __name__ == "__main__":

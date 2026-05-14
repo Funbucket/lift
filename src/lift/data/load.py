@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,10 @@ def write_csv(path: str | Path, rows: list[dict[str, Any]], fieldnames: list[str
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
+
+
+def read_json(path: str | Path) -> dict[str, Any]:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
 def dataset_fingerprint(path: str | Path) -> str:

@@ -7,12 +7,13 @@ from typing import Any
 
 from lift import __version__
 from lift.data.load import dataset_fingerprint, load_csv, write_csv
-from lift.data.schema import infer_schema, prepare_rows, validate_rows
+from lift.data.schema import Schema, infer_schema, prepare_rows, validate_rows
 from lift.evaluation.metrics import budget_frontier, campaign_incrementality, evaluate_ranking, select_targets
 from lift.models.baselines import ModelResult, train_baselines
 from lift.models.duality import DualityRLearner
 from lift.trust.diagnostics import diagnose
 from lift.workflow.artifacts import ArtifactStore
+from lift.workflow.simulate import POLICY_SCORE_FIELDS, TARGET_FIELDS
 
 
 @dataclass
@@ -47,7 +48,9 @@ def analyze(dataset_path: str | Path, config: AnalyzeConfig) -> dict[str, Any]:
     trust = diagnose(rows, schema, validation)
     campaign = campaign_incrementality(rows, schema)
     models = train_baselines(rows, schema, seed=config.seed)
-    models.append(DualityRLearner(lambda_grid=list(config.lambda_grid)).fit_predict(rows, schema))
+    models.append(
+        DualityRLearner(lambda_grid=list(config.lambda_grid), seed=config.seed).fit_predict(rows, schema)
+    )
 
     evaluations = {
         model.name: evaluate_ranking(rows, schema, model.scores)
@@ -61,6 +64,7 @@ def analyze(dataset_path: str | Path, config: AnalyzeConfig) -> dict[str, Any]:
         primary.expected_incremental_gain,
         primary.expected_incremental_cost,
     )
+    policy_scores = _policy_scores(rows, schema, primary)
     targets = select_targets(
         rows,
         schema,
@@ -96,7 +100,9 @@ def analyze(dataset_path: str | Path, config: AnalyzeConfig) -> dict[str, Any]:
     store.write_json(run_id, "models.json", model_payload)
     store.write_json(run_id, "evaluation.json", evaluation_payload)
     write_csv(store.run_dir(run_id) / "budget-frontier.csv", frontier, list(frontier[0].keys()) if frontier else [])
-    write_csv(store.run_dir(run_id) / "targets.csv", targets, _target_fields())
+    write_csv(store.run_dir(run_id) / "policy-scores.csv", policy_scores, POLICY_SCORE_FIELDS)
+    write_csv(store.run_dir(run_id) / "targets.csv", targets, TARGET_FIELDS)
+    store.write_json(run_id, "simulation.json", _simulation_payload(run_id, targets, config.budget, config.min_roi))
     store.write_markdown(run_id, "report.md", _report(run_id, campaign, trust, model_payload, evaluation_payload, len(targets)))
     store.write_markdown(run_id, "provenance.md", _provenance(run_payload, list(_artifact_names())))
 
@@ -127,24 +133,31 @@ def _model_summary(model: ModelResult) -> dict[str, Any]:
     }
 
 
+def _policy_scores(rows: list[dict[str, Any]], schema: Schema, model: ModelResult) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    for row, score, gain, cost in zip(
+        rows,
+        model.scores,
+        model.expected_incremental_gain,
+        model.expected_incremental_cost,
+    ):
+        safe_cost = max(float(cost), 0.0)
+        output.append(
+            {
+                "unit_id": row[schema.unit_id],
+                "score": score,
+                "expected_incremental_gain": gain,
+                "expected_incremental_cost": safe_cost,
+                "expected_incremental_profit": gain - safe_cost,
+                "expected_incremental_roi": _safe_divide(gain, safe_cost),
+            }
+        )
+    return output
+
+
 def _run_id(path: Path, seed: int) -> str:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     return f"{path.stem}-{timestamp}-s{seed}"
-
-
-def _target_fields() -> list[str]:
-    return [
-        "unit_id",
-        "rank",
-        "score",
-        "recommended_treatment",
-        "expected_incremental_gain",
-        "expected_incremental_cost",
-        "expected_incremental_profit",
-        "expected_incremental_roi",
-        "selection_reason",
-        "trust_level",
-    ]
 
 
 def _artifact_names() -> tuple[str, ...]:
@@ -156,10 +169,39 @@ def _artifact_names() -> tuple[str, ...]:
         "models.json",
         "evaluation.json",
         "budget-frontier.csv",
+        "policy-scores.csv",
         "targets.csv",
+        "simulation.json",
         "report.md",
         "provenance.md",
     )
+
+
+def _simulation_payload(
+    run_id: str,
+    targets: list[dict[str, Any]],
+    budget: float | None,
+    min_roi: float | None,
+) -> dict[str, Any]:
+    expected_gain = sum(float(row["expected_incremental_gain"]) for row in targets)
+    expected_cost = sum(float(row["expected_incremental_cost"]) for row in targets)
+    expected_roi = _safe_divide(expected_gain, expected_cost)
+    feasible = True
+    if budget is not None and expected_cost > budget:
+        feasible = False
+    if min_roi is not None and (not targets or (expected_cost > 0 and expected_roi < min_roi)):
+        feasible = False
+    return {
+        "run_id": run_id,
+        "budget": budget,
+        "min_roi": min_roi,
+        "constraint_status": "satisfied" if feasible else "failed",
+        "target_count": len(targets),
+        "expected_incremental_gain": expected_gain,
+        "expected_incremental_cost": expected_cost,
+        "expected_incremental_profit": expected_gain - expected_cost,
+        "expected_incremental_roi": expected_roi,
+    }
 
 
 def _report(
@@ -219,3 +261,9 @@ def _provenance(run_payload: dict[str, Any], artifacts: list[str]) -> str:
 
 {artifact_lines}
 """
+
+
+def _safe_divide(numerator: float, denominator: float) -> float:
+    if abs(denominator) < 1e-12:
+        return float("inf") if numerator > 0 else 0.0
+    return numerator / denominator

@@ -24,6 +24,12 @@ class ArtifactStore:
         path.write_text(content, encoding="utf-8")
         return path
 
+    def require_run_dir(self, run_id: str) -> Path:
+        path = self.run_dir(run_id)
+        if not path.exists() or not path.is_dir():
+            raise FileNotFoundError(f"Run not found: {run_id}")
+        return path
+
 
 def _json_default(value: Any) -> Any:
     if value == float("inf"):
