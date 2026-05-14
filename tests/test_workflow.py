@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -51,6 +52,7 @@ class WorkflowTest(unittest.TestCase):
                 "campaign_incrementality.json",
                 "models.json",
                 "evaluation.json",
+                "curves.csv",
                 "budget-frontier.csv",
                 "policy-scores.csv",
                 "targets.csv",
@@ -60,6 +62,10 @@ class WorkflowTest(unittest.TestCase):
             ]:
                 self.assertTrue((run_dir / name).exists(), name)
             self.assertEqual(result["primary_model"], "duality_r_learner")
+            evaluation = json.loads((run_dir / "evaluation.json").read_text(encoding="utf-8"))
+            self.assertIn("leaderboard", evaluation)
+            self.assertIn("models", evaluation)
+            self.assertIn("duality_r_learner", evaluation["models"])
 
             simulation = simulate_run(
                 result["run_id"],

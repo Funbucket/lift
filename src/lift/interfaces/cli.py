@@ -54,22 +54,25 @@ def analyze_dataset(
     estimate_propensity: bool = False,
     validation_fraction: float | None = None,
 ) -> None:
-    config_values = _config_values(
-        config=config,
-        seed=seed,
-        output_root=output_root,
-        unit_id=unit_id,
-        treatment=treatment,
-        maximize_kpi=maximize_kpi,
-        constraint_kpi=constraint_kpi,
-        propensity=propensity,
-        budget=budget,
-        min_roi=min_roi,
-        lambda_grid=lambda_grid,
-        estimate_propensity=estimate_propensity,
-        validation_fraction=validation_fraction,
-    )
-    _echo_json(analyze(dataset, AnalyzeConfig(**config_values)))
+    try:
+        config_values = _config_values(
+            config=config,
+            seed=seed,
+            output_root=output_root,
+            unit_id=unit_id,
+            treatment=treatment,
+            maximize_kpi=maximize_kpi,
+            constraint_kpi=constraint_kpi,
+            propensity=propensity,
+            budget=budget,
+            min_roi=min_roi,
+            lambda_grid=lambda_grid,
+            estimate_propensity=estimate_propensity,
+            validation_fraction=validation_fraction,
+        )
+        _echo_json(analyze(dataset, AnalyzeConfig(**config_values)))
+    except Exception as exc:
+        _exit_error("analyze_failed", str(exc))
 
 
 @app.command("simulate")
@@ -79,15 +82,18 @@ def simulate(
     budget: float | None = None,
     min_roi: float | None = None,
 ) -> None:
-    _echo_json(
-        simulate_run(
-            run_id,
-            output_root=output_root,
-            budget=budget,
-            min_roi=min_roi,
-            write_artifacts=True,
+    try:
+        _echo_json(
+            simulate_run(
+                run_id,
+                output_root=output_root,
+                budget=budget,
+                min_roi=min_roi,
+                write_artifacts=True,
+            )
         )
-    )
+    except Exception as exc:
+        _exit_error("simulate_failed", str(exc))
 
 
 @app.command("export-targets")
@@ -97,14 +103,17 @@ def export_targets(
     budget: float | None = None,
     min_roi: float | None = None,
 ) -> None:
-    result = simulate_run(
-        run_id,
-        output_root=output_root,
-        budget=budget,
-        min_roi=min_roi,
-        write_artifacts=True,
-    )
-    _echo_json({"targets_path": str(Path(output_root) / run_id / "targets.csv"), **result})
+    try:
+        result = simulate_run(
+            run_id,
+            output_root=output_root,
+            budget=budget,
+            min_roi=min_roi,
+            write_artifacts=True,
+        )
+        _echo_json({"targets_path": str(Path(output_root) / run_id / "targets.csv"), **result})
+    except Exception as exc:
+        _exit_error("export_targets_failed", str(exc))
 
 
 @app.command("report")
@@ -115,7 +124,7 @@ def report(run_id: str, output_root: str = "outputs") -> None:
 @app.command("outputs")
 def outputs(output_root: str = "outputs") -> None:
     root = Path(output_root)
-    runs = sorted(path.name for path in root.iterdir() if path.is_dir()) if root.exists() else []
+    runs = [_run_summary(path) for path in sorted(root.iterdir()) if path.is_dir()] if root.exists() else []
     _echo_json({"runs": runs})
 
 
@@ -173,6 +182,31 @@ def _config_values(
 
 def _echo_json(payload: dict[str, Any]) -> None:
     typer.echo(json.dumps(payload, indent=2))
+
+
+def _exit_error(code: str, message: str) -> None:
+    _echo_json({"error": {"code": code, "message": message}})
+    raise typer.Exit(code=1)
+
+
+def _run_summary(path: Path) -> dict[str, Any]:
+    run_path = path / "run.json"
+    if not run_path.exists():
+        return {"run_id": path.name, "status": "unknown"}
+    run = read_json(run_path)
+    trust_path = path / "trust.json"
+    simulation_path = path / "simulation.json"
+    trust = read_json(trust_path) if trust_path.exists() else {}
+    simulation = read_json(simulation_path) if simulation_path.exists() else {}
+    return {
+        "run_id": path.name,
+        "status": run.get("status"),
+        "created_at": run.get("created_at"),
+        "dataset_path": run.get("dataset_path"),
+        "trust_level": trust.get("trust_level"),
+        "target_count": simulation.get("target_count"),
+        "expected_incremental_roi": simulation.get("expected_incremental_roi"),
+    }
 
 
 if __name__ == "__main__":

@@ -58,6 +58,43 @@ def evaluate_ranking(rows: list[dict[str, Any]], schema: Schema, scores: list[fl
     }
 
 
+def model_policy_metrics(
+    curve: list[dict[str, float]],
+    *,
+    budget: float | None,
+    min_roi: float | None,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "iroi_at_budget": None,
+        "gain_at_budget": None,
+        "target_count_at_budget": None,
+        "gain_at_min_roi": None,
+        "target_count_at_min_roi": None,
+    }
+    if budget is not None:
+        feasible_budget = [
+            point
+            for point in curve
+            if point["incremental_cost"] <= budget
+        ]
+        if feasible_budget:
+            best = max(feasible_budget, key=lambda point: point["incremental_gain"])
+            result["iroi_at_budget"] = best["incremental_roi"]
+            result["gain_at_budget"] = best["incremental_gain"]
+            result["target_count_at_budget"] = int(best["target_count"])
+    if min_roi is not None:
+        feasible_roi = [
+            point
+            for point in curve
+            if math.isfinite(point["incremental_roi"]) and point["incremental_roi"] >= min_roi
+        ]
+        if feasible_roi:
+            best = max(feasible_roi, key=lambda point: point["incremental_gain"])
+            result["gain_at_min_roi"] = best["incremental_gain"]
+            result["target_count_at_min_roi"] = int(best["target_count"])
+    return result
+
+
 def budget_frontier(
     rows: list[dict[str, Any]],
     schema: Schema,

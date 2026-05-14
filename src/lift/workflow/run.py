@@ -10,7 +10,13 @@ from sklearn.model_selection import train_test_split
 from lift import __version__
 from lift.data.load import dataset_fingerprint, load_csv, write_csv
 from lift.data.schema import Schema, infer_schema, prepare_rows, validate_rows
-from lift.evaluation.metrics import budget_frontier, campaign_incrementality, evaluate_ranking, select_targets
+from lift.evaluation.metrics import (
+    budget_frontier,
+    campaign_incrementality,
+    evaluate_ranking,
+    model_policy_metrics,
+    select_targets,
+)
 from lift.models.baselines import ModelResult, train_baselines
 from lift.models.duality import DualityRLearner
 from lift.trust.diagnostics import diagnose
@@ -113,10 +119,8 @@ def analyze(dataset_path: str | Path, config: AnalyzeConfig) -> dict[str, Any]:
         "status": "completed",
     }
     model_payload = {"models": [_model_summary(model) for model in models], "primary_model": primary.name}
-    evaluation_payload = {
-        name: {key: value for key, value in result.items() if key != "curve"}
-        for name, result in evaluations.items()
-    }
+    evaluation_payload = _evaluation_payload(evaluations, budget=config.budget, min_roi=config.min_roi)
+    curves = _curve_rows(evaluations)
 
     store.write_json(run_id, "run.json", run_payload)
     store.write_json(run_id, "schema.json", schema.to_dict())
@@ -125,6 +129,7 @@ def analyze(dataset_path: str | Path, config: AnalyzeConfig) -> dict[str, Any]:
     store.write_json(run_id, "campaign_incrementality.json", campaign)
     store.write_json(run_id, "models.json", model_payload)
     store.write_json(run_id, "evaluation.json", evaluation_payload)
+    write_csv(store.run_dir(run_id) / "curves.csv", curves, list(curves[0].keys()) if curves else [])
     write_csv(store.run_dir(run_id) / "budget-frontier.csv", frontier, list(frontier[0].keys()) if frontier else [])
     write_csv(store.run_dir(run_id) / "policy-scores.csv", policy_scores, POLICY_SCORE_FIELDS)
     write_csv(store.run_dir(run_id) / "targets.csv", targets, TARGET_FIELDS)
@@ -157,6 +162,46 @@ def _model_summary(model: ModelResult) -> dict[str, Any]:
         "score_max": max(finite_scores) if finite_scores else None,
         "score_count": len(model.scores),
     }
+
+
+def _evaluation_payload(
+    evaluations: dict[str, dict[str, Any]],
+    *,
+    budget: float | None,
+    min_roi: float | None,
+) -> dict[str, Any]:
+    models: dict[str, Any] = {}
+    for name, result in evaluations.items():
+        scalar = {key: value for key, value in result.items() if key != "curve"}
+        scalar.update(model_policy_metrics(result["curve"], budget=budget, min_roi=min_roi))
+        models[name] = scalar
+    leaderboard = sorted(
+        (
+            {
+                "model": name,
+                "auuc": result.get("auuc", 0.0),
+                "qini": result.get("qini", 0.0),
+                "gain_at_budget": result.get("gain_at_budget"),
+                "gain_at_min_roi": result.get("gain_at_min_roi"),
+            }
+            for name, result in models.items()
+        ),
+        key=lambda row: (
+            row["gain_at_budget"] if row["gain_at_budget"] is not None else float("-inf"),
+            row["gain_at_min_roi"] if row["gain_at_min_roi"] is not None else float("-inf"),
+            row["auuc"],
+        ),
+        reverse=True,
+    )
+    return {"models": models, "leaderboard": leaderboard}
+
+
+def _curve_rows(evaluations: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for model_name, result in evaluations.items():
+        for point in result["curve"]:
+            rows.append({"model": model_name, **point})
+    return rows
 
 
 def _policy_scores(rows: list[dict[str, Any]], schema: Schema, model: ModelResult) -> list[dict[str, Any]]:
@@ -210,6 +255,7 @@ def _artifact_names() -> tuple[str, ...]:
         "campaign_incrementality.json",
         "models.json",
         "evaluation.json",
+        "curves.csv",
         "budget-frontier.csv",
         "policy-scores.csv",
         "targets.csv",
@@ -254,12 +300,10 @@ def _report(
     evaluations: dict[str, Any],
     target_count: int,
 ) -> str:
-    leaderboard = sorted(
-        ((name, result.get("aucc", 0.0)) for name, result in evaluations.items()),
-        key=lambda item: item[1],
-        reverse=True,
+    leaderboard_lines = "\n".join(
+        _leaderboard_line(row)
+        for row in evaluations.get("leaderboard", [])
     )
-    leaderboard_lines = "\n".join(f"- {name}: AUCC={aucc:.6f}" for name, aucc in leaderboard)
     warnings = "\n".join(f"- {warning}" for warning in trust.get("warnings", [])) or "- None"
     return f"""# Lift Report
 
@@ -288,6 +332,17 @@ def _report(
 
 Observational analyses retain hidden confounding risk. Recommendations are policy simulations, not automatic campaign execution.
 """
+
+
+def _leaderboard_line(row: dict[str, Any]) -> str:
+    budget_gain = row.get("gain_at_budget")
+    min_roi_gain = row.get("gain_at_min_roi")
+    return (
+        f"- {row['model']}: AUUC={row.get('auuc', 0.0):.6f}, "
+        f"Qini={row.get('qini', 0.0):.6f}, "
+        f"gain_at_budget={budget_gain if budget_gain is not None else 'n/a'}, "
+        f"gain_at_min_roi={min_roi_gain if min_roi_gain is not None else 'n/a'}"
+    )
 
 
 def _provenance(run_payload: dict[str, Any], artifacts: list[str]) -> str:
