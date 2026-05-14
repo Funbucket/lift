@@ -78,6 +78,8 @@ class WorkflowTest(unittest.TestCase):
             refreshed = refresh_report(result["run_id"], output_root=str(root / "outputs"))
             self.assertIn(f"Exported targets: {simulation['target_count']}", refreshed)
             self.assertIn("## Budget Simulation", refreshed)
+            self.assertIn("Overlap status:", refreshed)
+            self.assertIn("Leakage candidates excluded:", refreshed)
             self.assertIn("Budget: 10.0", refreshed)
 
 

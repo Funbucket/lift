@@ -17,6 +17,8 @@ def render_report(
         for row in evaluations.get("leaderboard", [])
     )
     warnings = "\n".join(f"- {warning}" for warning in trust.get("warnings", [])) or "- None"
+    leakage = ", ".join(trust.get("leakage_candidates", [])) or "None"
+    imbalance = ", ".join(trust.get("high_imbalance_features", [])) or "None"
     return f"""# Lift Report
 
 ## Summary
@@ -43,6 +45,13 @@ def render_report(
 - Expected incremental profit: {simulation.get("expected_incremental_profit")}
 
 ## Trust
+
+- Overlap status: `{trust.get("overlap_status", "unknown")}`
+- Low-overlap rows: {trust.get("low_overlap_count", 0)} ({trust.get("low_overlap_rate", 0.0):.2%})
+- Propensity range: {trust.get("propensity_min")} - {trust.get("propensity_max")}
+- Observational: {trust.get("observational", False)}
+- High-imbalance features: {imbalance}
+- Leakage candidates excluded: {leakage}
 
 {warnings}
 

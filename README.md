@@ -108,6 +108,8 @@ Small local fixtures are available for smoke testing:
 
 ```bash
 .venv/bin/lift analyze fixtures/randomized_coupon.csv
+.venv/bin/lift analyze fixtures/observational_coupon.csv --estimate-propensity
+.venv/bin/lift analyze fixtures/low_overlap_coupon.csv
 .venv/bin/lift inspect fixtures/leakage_coupon.csv
 ```
 
