@@ -9,7 +9,7 @@ import typer
 from lift.data.load import load_csv, read_json, read_mapping
 from lift.data.schema import infer_schema, validate_rows
 from lift.workflow.run import AnalyzeConfig, analyze
-from lift.workflow.simulate import report_run, simulate_run
+from lift.workflow.simulate import refresh_report, report_run, simulate_run
 
 
 app = typer.Typer(no_args_is_help=True)
@@ -125,8 +125,11 @@ def export_targets(
 
 
 @app.command("report")
-def report(run_id: str, output_root: str = "outputs") -> None:
-    typer.echo(report_run(run_id, output_root=output_root))
+def report(run_id: str, output_root: str = "outputs", refresh: bool = False) -> None:
+    if refresh:
+        typer.echo(refresh_report(run_id, output_root=output_root))
+    else:
+        typer.echo(report_run(run_id, output_root=output_root))
 
 
 @app.command("outputs")

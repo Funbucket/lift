@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import Any
 
 from lift.data.load import load_csv, read_json, write_csv
+from lift.evaluation.metrics import model_policy_metrics
 from lift.workflow.artifacts import ArtifactStore
+from lift.workflow.report import render_report
 
 
 POLICY_SCORE_FIELDS = [
@@ -101,6 +103,75 @@ def report_run(run_id: str, *, output_root: str | Path = "outputs") -> str:
     store = ArtifactStore(output_root)
     path = store.require_run_dir(run_id) / "report.md"
     return path.read_text(encoding="utf-8")
+
+
+def refresh_report(run_id: str, *, output_root: str | Path = "outputs") -> str:
+    store = ArtifactStore(output_root)
+    run_dir = store.require_run_dir(run_id)
+    simulation = read_json(run_dir / "simulation.json")
+    content = render_report(
+        run_id=run_id,
+        campaign=read_json(run_dir / "campaign_incrementality.json"),
+        trust=read_json(run_dir / "trust.json"),
+        models=read_json(run_dir / "models.json"),
+        evaluations=_evaluation_for_simulation(run_dir),
+        simulation=simulation,
+    )
+    store.write_markdown(run_id, "report.md", content)
+    return content
+
+
+def _evaluation_for_simulation(run_dir: Path) -> dict[str, Any]:
+    evaluation = read_json(run_dir / "evaluation.json")
+    simulation = read_json(run_dir / "simulation.json")
+    if not (run_dir / "curves.csv").exists():
+        return evaluation
+    curves = _curves_by_model(load_csv(run_dir / "curves.csv"))
+    models = dict(evaluation.get("models", {}))
+    for model_name, curve in curves.items():
+        if model_name not in models:
+            continue
+        models[model_name] = {
+            **models[model_name],
+            **model_policy_metrics(
+                curve,
+                budget=simulation.get("budget"),
+                min_roi=simulation.get("min_roi"),
+            ),
+        }
+    leaderboard = sorted(
+        (
+            {
+                "model": name,
+                "auuc": result.get("auuc", 0.0),
+                "qini": result.get("qini", 0.0),
+                "gain_at_budget": result.get("gain_at_budget"),
+                "gain_at_min_roi": result.get("gain_at_min_roi"),
+            }
+            for name, result in models.items()
+        ),
+        key=lambda row: (
+            row["gain_at_budget"] if row["gain_at_budget"] is not None else float("-inf"),
+            row["gain_at_min_roi"] if row["gain_at_min_roi"] is not None else float("-inf"),
+            row["auuc"],
+        ),
+        reverse=True,
+    )
+    return {"models": models, "leaderboard": leaderboard}
+
+
+def _curves_by_model(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, float]]]:
+    curves: dict[str, list[dict[str, float]]] = {}
+    for row in rows:
+        model = str(row["model"])
+        curves.setdefault(model, []).append(
+            {
+                key: float(value)
+                for key, value in row.items()
+                if key != "model"
+            }
+        )
+    return curves
 
 
 def _coerce_score_row(row: dict[str, Any]) -> dict[str, Any]:

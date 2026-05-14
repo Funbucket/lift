@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 from lift.workflow.run import AnalyzeConfig, analyze
-from lift.workflow.simulate import simulate_run
+from lift.workflow.simulate import refresh_report, simulate_run
 
 
 class WorkflowTest(unittest.TestCase):
@@ -75,6 +75,10 @@ class WorkflowTest(unittest.TestCase):
             )
             self.assertEqual(simulation["constraint_status"], "satisfied")
             self.assertLessEqual(simulation["expected_incremental_cost"], 10.0)
+            refreshed = refresh_report(result["run_id"], output_root=str(root / "outputs"))
+            self.assertIn(f"Exported targets: {simulation['target_count']}", refreshed)
+            self.assertIn("## Budget Simulation", refreshed)
+            self.assertIn("Budget: 10.0", refreshed)
 
 
 if __name__ == "__main__":

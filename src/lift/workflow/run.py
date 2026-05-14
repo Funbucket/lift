@@ -22,6 +22,7 @@ from lift.models.duality import DualityRLearner
 from lift.trust.diagnostics import diagnose
 from lift.trust.propensity import apply_propensity_estimates, estimate_propensity
 from lift.workflow.artifacts import ArtifactStore
+from lift.workflow.report import render_report
 from lift.workflow.simulate import POLICY_SCORE_FIELDS, TARGET_FIELDS
 
 
@@ -152,8 +153,20 @@ def analyze(dataset_path: str | Path, config: AnalyzeConfig) -> dict[str, Any]:
     write_csv(store.run_dir(run_id) / "budget-frontier.csv", frontier, list(frontier[0].keys()) if frontier else [])
     write_csv(store.run_dir(run_id) / "policy-scores.csv", policy_scores, POLICY_SCORE_FIELDS)
     write_csv(store.run_dir(run_id) / "targets.csv", targets, TARGET_FIELDS)
-    store.write_json(run_id, "simulation.json", _simulation_payload(run_id, targets, config.budget, config.min_roi))
-    store.write_markdown(run_id, "report.md", _report(run_id, campaign, trust, model_payload, evaluation_payload, len(targets)))
+    simulation_payload = _simulation_payload(run_id, targets, config.budget, config.min_roi)
+    store.write_json(run_id, "simulation.json", simulation_payload)
+    store.write_markdown(
+        run_id,
+        "report.md",
+        render_report(
+            run_id=run_id,
+            campaign=campaign,
+            trust=trust,
+            models=model_payload,
+            evaluations=evaluation_payload,
+            simulation=simulation_payload,
+        ),
+    )
     store.write_markdown(run_id, "provenance.md", _provenance(run_payload, list(_artifact_names())))
 
     return {
@@ -309,59 +322,6 @@ def _simulation_payload(
         "expected_incremental_profit": expected_gain - expected_cost,
         "expected_incremental_roi": expected_roi,
     }
-
-
-def _report(
-    run_id: str,
-    campaign: dict[str, Any],
-    trust: dict[str, Any],
-    models: dict[str, Any],
-    evaluations: dict[str, Any],
-    target_count: int,
-) -> str:
-    leaderboard_lines = "\n".join(
-        _leaderboard_line(row)
-        for row in evaluations.get("leaderboard", [])
-    )
-    warnings = "\n".join(f"- {warning}" for warning in trust.get("warnings", [])) or "- None"
-    return f"""# Lift Report
-
-## Summary
-
-- Run: `{run_id}`
-- Primary model: `{models["primary_model"]}`
-- Trust level: `{trust["trust_level"]}`
-- Exported targets: {target_count}
-
-## Campaign Incrementality
-
-- Incremental maximize KPI: {campaign["incremental_maximize_kpi"]:.6f}
-- Incremental constraint KPI: {campaign["incremental_constraint_kpi"]:.6f}
-- Incremental ROI: {campaign["incremental_roi"]}
-
-## Trust
-
-{warnings}
-
-## Model Leaderboard
-
-{leaderboard_lines}
-
-## Limitations
-
-Observational analyses retain hidden confounding risk. Recommendations are policy simulations, not automatic campaign execution.
-"""
-
-
-def _leaderboard_line(row: dict[str, Any]) -> str:
-    budget_gain = row.get("gain_at_budget")
-    min_roi_gain = row.get("gain_at_min_roi")
-    return (
-        f"- {row['model']}: AUUC={row.get('auuc', 0.0):.6f}, "
-        f"Qini={row.get('qini', 0.0):.6f}, "
-        f"gain_at_budget={budget_gain if budget_gain is not None else 'n/a'}, "
-        f"gain_at_min_roi={min_roi_gain if min_roi_gain is not None else 'n/a'}"
-    )
 
 
 def _provenance(run_payload: dict[str, Any], artifacts: list[str]) -> str:

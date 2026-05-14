@@ -38,6 +38,25 @@ class CliTest(unittest.TestCase):
             self.assertEqual(len(payload["runs"]), 1)
             self.assertIn("trust_level", payload["runs"][0])
 
+            run_id = json.loads(analyze.output)["run_id"]
+            simulate = runner.invoke(
+                app,
+                [
+                    "simulate",
+                    run_id,
+                    "--output-root",
+                    str(root / "outputs"),
+                    "--budget",
+                    "3",
+                    "--min-roi",
+                    "0.1",
+                ],
+            )
+            self.assertEqual(simulate.exit_code, 0, simulate.output)
+            report = runner.invoke(app, ["report", run_id, "--output-root", str(root / "outputs"), "--refresh"])
+            self.assertEqual(report.exit_code, 0, report.output)
+            self.assertIn("## Budget Simulation", report.output)
+
     def test_yaml_config_can_select_estimators(self) -> None:
         runner = CliRunner()
         with tempfile.TemporaryDirectory() as temp_dir:
