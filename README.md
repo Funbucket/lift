@@ -55,6 +55,12 @@ lift doctor
 lift quickstart
 ```
 
+Install the local source tree through the launcher script:
+
+```bash
+LIFT_PACKAGE=. sh scripts/install/install.sh
+```
+
 Install a built wheel through the user launcher script:
 
 ```bash

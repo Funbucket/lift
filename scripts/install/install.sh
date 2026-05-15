@@ -19,15 +19,15 @@ if [ -z "$LIFT_PACKAGE" ]; then
     LIFT_INSTALL_TMP="$(mktemp -d "${TMPDIR:-/tmp}/lift-install.XXXXXX")"
     LIFT_PACKAGE="$LIFT_INSTALL_TMP/lift_agent-$LIFT_VERSION-py3-none-any.whl"
     curl -fsSL "$LIFT_RELEASE_BASE_URL/lift_agent-$LIFT_VERSION-py3-none-any.whl" -o "$LIFT_PACKAGE"
-  elif [ -f "$(pwd)/pyproject.toml" ]; then
-    LIFT_PACKAGE="$(pwd)"
   elif [ -n "$LIFT_DEFAULT_RELEASE_BASE_URL" ]; then
     LIFT_INSTALL_TMP="$(mktemp -d "${TMPDIR:-/tmp}/lift-install.XXXXXX")"
     LIFT_PACKAGE="$LIFT_INSTALL_TMP/lift_agent-$LIFT_VERSION-py3-none-any.whl"
     curl -fsSL "$LIFT_DEFAULT_RELEASE_BASE_URL/lift_agent-$LIFT_VERSION-py3-none-any.whl" -o "$LIFT_PACKAGE"
+  elif [ -f "$(pwd)/pyproject.toml" ]; then
+    LIFT_PACKAGE="$(pwd)"
   else
     echo "Lift package not specified." >&2
-    echo "Run from the repo root, set LIFT_PACKAGE, or set LIFT_PACKAGE_URL for curl-pipe installs." >&2
+    echo "Set LIFT_PACKAGE, LIFT_PACKAGE_URL, or LIFT_RELEASE_BASE_URL." >&2
     exit 1
   fi
 fi

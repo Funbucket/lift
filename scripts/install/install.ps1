@@ -23,15 +23,15 @@ if (!$LiftPackage) {
     New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
     $LiftPackage = Join-Path $tempDir "lift_agent-$LiftVersion-py3-none-any.whl"
     Invoke-WebRequest -Uri "$LiftReleaseBaseUrl/lift_agent-$LiftVersion-py3-none-any.whl" -OutFile $LiftPackage
-  } elseif (Test-Path $cwdPyproject) {
-    $LiftPackage = $cwdPackage
   } elseif ($LiftDefaultReleaseBaseUrl) {
     $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
     $LiftPackage = Join-Path $tempDir "lift_agent-$LiftVersion-py3-none-any.whl"
     Invoke-WebRequest -Uri "$LiftDefaultReleaseBaseUrl/lift_agent-$LiftVersion-py3-none-any.whl" -OutFile $LiftPackage
+  } elseif (Test-Path $cwdPyproject) {
+    $LiftPackage = $cwdPackage
   } else {
-    Write-Error "Lift package not specified. Run from the repo root, set LIFT_PACKAGE, or set LIFT_PACKAGE_URL for remote installs."
+    Write-Error "Lift package not specified. Set LIFT_PACKAGE, LIFT_PACKAGE_URL, or LIFT_RELEASE_BASE_URL."
     exit 1
   }
 }
