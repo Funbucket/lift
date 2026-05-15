@@ -210,7 +210,7 @@ curl -fsSL <install-url> | bash
 lift
 ```
 
-Running `lift` without arguments should show a terminal dashboard with runtime status, configured model, working directory, output location, available agent integrations, and Lift slash workflows.
+Running `lift` without arguments must behave like Feynman's first-run CLI. If no default model is configured, the first screen must be the Feynman-style model setup flow with arrow-key selection. After model setup completes, or on later runs where a model is already configured, `lift` should show a terminal dashboard with runtime status, configured model, working directory, output location, available agent integrations, and Lift slash workflows.
 
 Model/account access is split into three modes:
 

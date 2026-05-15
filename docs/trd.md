@@ -111,7 +111,7 @@ Lift는 해당 repo에서 다음만 참고한다.
 
 ## 2.2 Feynman-style terminal runtime
 
-The installed `lift` command is the product entrypoint. When called without a subcommand it renders a terminal dashboard and then enters the local slash-command REPL. The dashboard must show:
+The installed `lift` command is the product entrypoint. When called without a subcommand it first checks model configuration. If no default model is configured and stdin/stdout are interactive terminals, it launches the Feynman-style setup prompt before any dashboard or REPL. Once setup completes, or when a model is already configured, it renders a terminal dashboard and then enters the local slash-command REPL. The dashboard must show:
 
 - configured model or recommended model
 - current directory

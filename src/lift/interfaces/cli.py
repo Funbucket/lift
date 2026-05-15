@@ -39,6 +39,10 @@ app.add_typer(agent_app, name="agent")
 @app.callback()
 def callback(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
+        if is_interactive_terminal() and not _model_is_configured():
+            result = run_interactive_setup()
+            if result.get("cancelled") or not _model_is_configured():
+                return
         run_repl()
 
 
@@ -389,6 +393,12 @@ def _csv_list(value: str) -> list[str]:
 
 def _echo_json(payload: dict[str, Any]) -> None:
     typer.echo(json.dumps(payload, indent=2))
+
+
+def _model_is_configured() -> bool:
+    status = model_status()
+    current = status.get("current")
+    return isinstance(current, str) and bool(current)
 
 
 def _exit_error(code: str, message: str) -> None:

@@ -14,7 +14,7 @@ Current implementation scope:
 - Local artifacts under `outputs/<run-id>/`
 - CLI simulation and target re-export from saved artifacts
 - YAML/JSON config files for schema, model, budget, and ROI settings
-- Feynman-style terminal dashboard when running `lift` with no command
+- Feynman-style first-run model setup, then terminal dashboard when running `lift` with no command
 - `lift model ...` and `lift agent ...` configuration surfaces for model/auth and Codex/Claude integration
 
 `references/fractional_uplift` is reference-only and is not a runtime dependency.
@@ -25,7 +25,7 @@ One-line installer shape for a published wheel:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Funbucket/lift/main/scripts/install/install.sh | bash
-lift setup
+lift
 lift doctor
 lift quickstart
 ```

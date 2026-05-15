@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from typer.testing import CliRunner
 
@@ -131,6 +132,40 @@ class CliTest(unittest.TestCase):
             self.assertEqual(result.exit_code, 0, result.output)
             self.assertIn("/analyze", result.output)
             self.assertIn("Type /help", result.output)
+
+    def test_no_command_starts_setup_first_when_model_is_missing_in_terminal(self) -> None:
+        runner = CliRunner()
+        with (
+            patch("lift.interfaces.cli.is_interactive_terminal", return_value=True),
+            patch(
+                "lift.interfaces.cli.model_status",
+                side_effect=[
+                    {"current": None},
+                    {"current": "openai-codex/gpt-5.5"},
+                ],
+            ),
+            patch("lift.interfaces.cli.run_interactive_setup", return_value={"cancelled": False}) as setup,
+            patch("lift.interfaces.cli.run_repl") as repl,
+        ):
+            result = runner.invoke(app, [])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        setup.assert_called_once()
+        repl.assert_called_once()
+
+    def test_no_command_exits_after_cancelled_initial_setup(self) -> None:
+        runner = CliRunner()
+        with (
+            patch("lift.interfaces.cli.is_interactive_terminal", return_value=True),
+            patch("lift.interfaces.cli.model_status", return_value={"current": None}),
+            patch("lift.interfaces.cli.run_interactive_setup", return_value={"cancelled": True}) as setup,
+            patch("lift.interfaces.cli.run_repl") as repl,
+        ):
+            result = runner.invoke(app, [])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        setup.assert_called_once()
+        repl.assert_not_called()
 
     def test_setup_writes_settings(self) -> None:
         runner = CliRunner()
