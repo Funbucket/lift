@@ -3,7 +3,7 @@ set -eu
 
 LIFT_HOME="${LIFT_HOME:-"$HOME/.lift"}"
 LIFT_BIN_DIR="${LIFT_BIN_DIR:-"$HOME/.local/bin"}"
-LIFT_VERSION="${LIFT_VERSION:-0.1.0}"
+LIFT_VERSION="${LIFT_VERSION:-0.1.1}"
 LIFT_PACKAGE="${LIFT_PACKAGE:-${LIFT_SOURCE:-}}"
 LIFT_PACKAGE_URL="${LIFT_PACKAGE_URL:-}"
 LIFT_DEFAULT_RELEASE_BASE_URL="https://github.com/Funbucket/lift/releases/latest/download"
