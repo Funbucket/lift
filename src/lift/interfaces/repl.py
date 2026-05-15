@@ -52,7 +52,7 @@ def run_repl() -> None:
 
 def handle_repl_command(line: str) -> str | None:
     args = shlex.split(line)
-    command = args[0]
+    command = _normalize_command(args[0])
     rest = args[1:]
     if command == "/help":
         return HELP_TEXT
@@ -95,6 +95,12 @@ def handle_repl_command(line: str) -> str | None:
             return refresh_report(run_id, output_root=output_root)
         return report_run(run_id, output_root=output_root)
     raise ValueError(f"Unknown command: {command}")
+
+
+def _normalize_command(command: str) -> str:
+    if command.startswith("/"):
+        return command
+    return f"/{command}"
 
 
 def _analyze_config(options: dict[str, Any]) -> AnalyzeConfig:

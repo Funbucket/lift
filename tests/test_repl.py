@@ -12,6 +12,11 @@ class ReplTest(unittest.TestCase):
         self.assertIsNotNone(output)
         self.assertIn("/analyze", output)
 
+    def test_help_accepts_bare_command(self) -> None:
+        output = handle_repl_command("help")
+        self.assertIsNotNone(output)
+        self.assertIn("/analyze", output)
+
     def test_doctor_returns_json(self) -> None:
         output = handle_repl_command("/doctor")
         self.assertIsNotNone(output)

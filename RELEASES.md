@@ -1,5 +1,9 @@
 # Release Notes
 
+## 0.1.2
+
+- Accept slash and bare commands in the local REPL, including `/help` and `help`.
+
 ## 0.1.1
 
 - Add Feynman-style terminal dashboard for `lift`.
