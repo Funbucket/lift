@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -218,6 +219,81 @@ class CliTest(unittest.TestCase):
             self.assertEqual(result.exit_code, 0, result.output)
             payload = json.loads(result.output)
             self.assertEqual(payload["status"], "bridge_required")
+
+    def test_model_oauth_login_uses_bridge_and_persists_model(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            home = root / "home"
+            bridge = root / "fake_bridge.py"
+            bridge.write_text(
+                "\n".join(
+                    [
+                        "import json",
+                        "import sys",
+                        "assert sys.argv[1] == 'login'",
+                        "assert '--auth-path' in sys.argv",
+                        "print(json.dumps({",
+                        "  'status': 'ok',",
+                        "  'provider': sys.argv[2],",
+                        "  'models': ['gpt-oauth'],",
+                        "  'default_model': 'gpt-oauth'",
+                        "}))",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            result = runner.invoke(
+                app,
+                ["model", "login", "openai-codex", "--method", "oauth"],
+                env={
+                    "LIFT_HOME": str(home),
+                    "LIFT_OAUTH_BRIDGE": f"{sys.executable} {bridge}",
+                },
+            )
+
+            self.assertEqual(result.exit_code, 0, result.output)
+            payload = json.loads(result.output)
+            self.assertEqual(payload["status"], "ok")
+            self.assertEqual(payload["model"], "gpt-oauth")
+            auth = json.loads((home / "auth.json").read_text(encoding="utf-8"))
+            settings = json.loads((home / "settings.json").read_text(encoding="utf-8"))
+            self.assertEqual(auth["providers"]["openai-codex"]["type"], "oauth")
+            self.assertEqual(settings["default_provider"], "openai-codex")
+            self.assertEqual(settings["default_model"], "gpt-oauth")
+
+    def test_model_oauth_login_returns_bridge_error_payload(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            bridge = root / "fake_bridge_error.py"
+            bridge.write_text(
+                "\n".join(
+                    [
+                        "import json",
+                        "import sys",
+                        "print(json.dumps({'status': 'error', 'message': 'denied'}))",
+                        "sys.exit(7)",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            result = runner.invoke(
+                app,
+                ["model", "login", "openai-codex", "--method", "oauth"],
+                env={
+                    "LIFT_HOME": str(root / "home"),
+                    "LIFT_OAUTH_BRIDGE": f"{sys.executable} {bridge}",
+                },
+            )
+
+            self.assertEqual(result.exit_code, 0, result.output)
+            payload = json.loads(result.output)
+            self.assertEqual(payload["status"], "error")
+            self.assertEqual(payload["message"], "denied")
+            self.assertEqual(payload["returncode"], 7)
 
     def test_agent_set_writes_default_agent(self) -> None:
         runner = CliRunner()

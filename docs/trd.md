@@ -140,6 +140,29 @@ OAuth is represented as a provider capability, but real browser login requires a
 
 API-key setup can write `~/.lift/auth.json` and default model settings. External CLI setup detects `codex` and `claude` binaries and tracks skill installation state.
 
+### OAuth bridge protocol
+
+Lift discovers the bridge through `LIFT_OAUTH_BRIDGE`. When present, `lift model login <provider> --method oauth` runs:
+
+```bash
+$LIFT_OAUTH_BRIDGE login <provider> --auth-path ~/.lift/auth.json --settings-path ~/.lift/settings.json
+```
+
+The bridge must print one JSON object to stdout. A successful response uses:
+
+```json
+{
+  "status": "ok",
+  "provider": "openai-codex",
+  "models": ["gpt-5.4"],
+  "default_model": "gpt-5.4"
+}
+```
+
+Lift then records the provider as OAuth-authenticated in `auth.json` and sets the default model in `settings.json`. Non-success statuses are returned to the user without mutating auth state.
+
+The repository includes `scripts/oauth/pi-auth-bridge.mjs` as the Feynman/Pi-compatible bridge shape. It depends on `@mariozechner/pi-coding-agent`; production packaging must bundle that Node dependency or install an equivalent bridge before OAuth is considered release-ready.
+
 ---
 
 # 3. Data Contract

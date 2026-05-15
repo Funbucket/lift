@@ -285,6 +285,8 @@ Test cases:
 - `lift model list` reports API-key providers, OAuth providers, current model, and bridge status
 - `lift model login <provider> --method api-key` writes `auth.json` and default model settings
 - `lift model login <provider> --method oauth` returns `bridge_required` when no Pi-compatible auth bridge is configured
+- `lift model login <provider> --method oauth` calls `LIFT_OAUTH_BRIDGE` when configured and persists successful OAuth provider metadata
+- OAuth bridge failures return structured `bridge_failed` or bridge-provided error payloads
 - `lift agent status` detects Codex/Claude binaries without requiring them
 - `lift agent set codex` and `lift agent set claude` persist the default agent
 
@@ -292,6 +294,7 @@ Pass criteria:
 
 - no MCP command is exposed
 - OAuth login never reports success without a real bridge
+- bridge stdout must be valid JSON on success
 - existing analysis, simulation, report, and quickstart tests continue to pass
 
 ---
