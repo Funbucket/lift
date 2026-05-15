@@ -79,7 +79,7 @@ When `node` and `npm` are available, the installer also installs the Feynman/Pi 
 curl -fsSL https://raw.githubusercontent.com/Funbucket/lift/main/scripts/install/install.sh | LIFT_INSTALL_OAUTH_BRIDGE=0 bash
 ```
 
-The bridge installs `@mariozechner/pi-coding-agent` and lets `lift setup` or `lift model login <provider> --method oauth` open the browser login flow.
+The bridge installs `@clack/prompts` and `@mariozechner/pi-coding-agent`, so `lift setup` uses Feynman-style arrow-key prompts and `lift model login <provider> --method oauth` opens the browser login flow.
 
 By default, installed runs write artifacts under `~/.lift/outputs`. Override with `--output-root`, `LIFT_HOME`, or `LIFT_OUTPUT_ROOT`.
 

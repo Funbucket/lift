@@ -163,7 +163,7 @@ The bridge must print one JSON object to stdout. A successful response uses:
 
 Lift then records the provider as OAuth-authenticated in `auth.json` and sets the default model in `settings.json`. Non-success statuses are returned to the user without mutating auth state.
 
-The package includes `lift.oauth/pi_auth_bridge.mjs` as the Feynman/Pi-compatible bridge shape. It depends on `@mariozechner/pi-coding-agent`; the installer copies the bridge to `~/.lift/oauth-bridge` and installs the Node dependency there when `LIFT_INSTALL_OAUTH_BRIDGE=auto` can find `node` and `npm`. Set `LIFT_INSTALL_OAUTH_BRIDGE=0` to skip it.
+The package includes `lift.oauth/setup_prompt.mjs` and `lift.oauth/pi_auth_bridge.mjs` as the Feynman/Pi-compatible setup/auth bridge shape. `setup_prompt.mjs` uses `@clack/prompts`, matching Feynman's `references/feynman/src/setup/prompts.ts` interaction model. The installer copies both files to `~/.lift/oauth-bridge` and installs `@clack/prompts` plus `@mariozechner/pi-coding-agent` there when `LIFT_INSTALL_OAUTH_BRIDGE=auto` can find `node` and `npm`. Set `LIFT_INSTALL_OAUTH_BRIDGE=0` to skip it.
 
 ---
 

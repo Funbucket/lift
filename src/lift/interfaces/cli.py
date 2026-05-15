@@ -15,6 +15,7 @@ from lift.system.doctor import doctor_report
 from lift.system.models import (
     begin_oauth_login,
     bundled_oauth_bridge_path,
+    bundled_setup_prompt_path,
     configure_api_key_provider,
     model_status,
     oauth_bridge_report,
@@ -306,6 +307,15 @@ def model_bridge_path(raw: bool = False) -> None:
         typer.echo(path)
     else:
         _echo_json({"bridge_path": path})
+
+
+@model_app.command("setup-prompt-path")
+def model_setup_prompt_path(raw: bool = False) -> None:
+    path = bundled_setup_prompt_path()
+    if raw:
+        typer.echo(path)
+    else:
+        _echo_json({"setup_prompt_path": path})
 
 
 @agent_app.command("status")

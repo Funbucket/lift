@@ -32,15 +32,15 @@ API_KEY_PROVIDERS = {
 
 OAUTH_PROVIDERS = {
     "openai-codex": {
-        "label": "OpenAI Codex / ChatGPT OAuth",
+        "label": "ChatGPT Plus/Pro (Codex Subscription)",
         "bridge": "pi-auth",
     },
     "anthropic-claude": {
-        "label": "Claude OAuth",
+        "label": "Claude Pro/Max",
         "bridge": "pi-auth",
     },
     "github-copilot": {
-        "label": "GitHub Copilot OAuth",
+        "label": "GitHub Copilot",
         "bridge": "pi-auth",
     },
 }
@@ -87,6 +87,10 @@ def oauth_bridge_report() -> dict[str, Any]:
 
 def bundled_oauth_bridge_path() -> str:
     return str(_bundled_bridge_path())
+
+
+def bundled_setup_prompt_path() -> str:
+    return str(_bundled_setup_prompt_path())
 
 
 def configure_api_key_provider(
@@ -324,6 +328,11 @@ def _json_object(value: str) -> dict[str, Any] | None:
 
 def _bundled_bridge_path() -> Path:
     resource = files("lift.oauth").joinpath("pi_auth_bridge.mjs")
+    return Path(str(resource))
+
+
+def _bundled_setup_prompt_path() -> Path:
+    resource = files("lift.oauth").joinpath("setup_prompt.mjs")
     return Path(str(resource))
 
 

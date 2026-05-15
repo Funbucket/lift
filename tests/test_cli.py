@@ -234,6 +234,10 @@ class CliTest(unittest.TestCase):
             self.assertEqual(raw.exit_code, 0, raw.output)
             self.assertTrue(Path(raw.output.strip()).exists())
 
+            setup_prompt = runner.invoke(app, ["model", "setup-prompt-path", "--raw"])
+            self.assertEqual(setup_prompt.exit_code, 0, setup_prompt.output)
+            self.assertTrue(Path(setup_prompt.output.strip()).exists())
+
     def test_model_oauth_login_uses_bridge_and_persists_model(self) -> None:
         runner = CliRunner()
         with tempfile.TemporaryDirectory() as temp_dir:

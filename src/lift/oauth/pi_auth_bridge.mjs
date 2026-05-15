@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { createInterface } from "node:readline/promises";
-import { stdin as input, stderr as output } from "node:process";
+import { stderr as output } from "node:process";
 import { dirname, resolve } from "node:path";
+import { text } from "@clack/prompts";
 
 function parseArgs(argv) {
   const [command, provider, ...rest] = argv;
@@ -37,17 +37,6 @@ function openUrl(url) {
   }
 }
 
-async function promptText(message, placeholder = "") {
-  const rl = createInterface({ input, output });
-  try {
-    const suffix = placeholder ? ` (${placeholder})` : "";
-    const answer = await rl.question(`${message}${suffix}: `);
-    return answer || placeholder;
-  } finally {
-    rl.close();
-  }
-}
-
 async function main() {
   const { command, provider, options } = parseArgs(process.argv.slice(2));
   if (command !== "login" || !provider || !options["auth-path"]) {
@@ -66,9 +55,16 @@ async function main() {
       output.write(`Auth URL: ${info.url}\n`);
       if (info.instructions) output.write(`${info.instructions}\n`);
     },
-    onPrompt: async (prompt) => promptText(prompt.message, prompt.placeholder ?? ""),
+    onPrompt: async (prompt) => text({
+      message: prompt.message,
+      placeholder: prompt.placeholder ?? "",
+      initialValue: prompt.placeholder ?? "",
+    }),
     onProgress: (message) => output.write(`${message}\n`),
-    onManualCodeInput: async () => promptText("Paste redirect URL or auth code"),
+    onManualCodeInput: async () => text({
+      message: "Paste redirect URL or auth code",
+      placeholder: "",
+    }),
   });
 
   const registry = ModelRegistry.create(AuthStorage.create(authPath), modelsJsonPath);

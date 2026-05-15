@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
 from lift import __version__
 from lift.system.agents import agent_status, set_default_agent
 from lift.system.models import (
-    API_KEY_PROVIDERS,
-    OAUTH_PROVIDERS,
     begin_oauth_login,
+    bundled_setup_prompt_path,
     configure_api_key_provider,
     model_status,
     oauth_bridge_report,
@@ -77,7 +80,6 @@ def run_interactive_setup(
     nuisance_model: str = "ridge",
     overwrite: bool = False,
 ) -> dict[str, Any]:
-    print("┌  Lift setup")
     settings_result = write_settings(
         output_root=output_root,
         default_seed=default_seed,
@@ -86,28 +88,36 @@ def run_interactive_setup(
         overwrite=overwrite,
     )
 
-    print("│")
-    choice = _prompt_choice(
-        "◆  Choose how to configure model access:",
-        [
-            "OAuth login (recommended: ChatGPT Plus/Pro, Claude Pro/Max, Copilot, ...)",
-            "API key or custom provider (OpenAI, Anthropic, Google, ...)",
-            "Cancel",
-        ],
-        default=1,
-    )
-
-    auth_result: dict[str, Any] | None = None
-    if choice == 1:
-        auth_result = _interactive_oauth_login()
-    elif choice == 2:
-        auth_result = _interactive_api_key_login()
-    else:
-        print("└  Setup cancelled.")
+    selection = _run_setup_prompt()
+    if selection.get("status") == "cancelled":
         return {"settings": settings_result, "model_auth": None, "cancelled": True}
+    if selection.get("status") != "ok":
+        return {"settings": settings_result, "model_auth": selection, "cancelled": False}
+
+    method = selection.get("method")
+    auth_result: dict[str, Any] | None = None
+    if method == "oauth":
+        provider = str(selection.get("provider") or "openai-codex")
+        auth_result = begin_oauth_login(provider)
+    elif method == "api-key":
+        auth_result = configure_api_key_provider(
+            str(selection.get("provider") or "openai"),
+            api_key=str(selection.get("api_key") or ""),
+            model=str(selection.get("model") or ""),
+            make_default=True,
+        )
+    else:
+        auth_result = {"status": "error", "message": f"Unknown setup method: {method}"}
 
     agent_result = _configure_recommended_agent()
     status = model_status()
+    print("│")
+    print("◆ Packages")
+    print("  No additional package install required.")
+    print("│")
+    print("◆  Optional packages")
+    print("│  ◻ memory (Preference and correction memory across sessions.)")
+    print("│  ◻ generative-ui")
     print("│")
     print("◇  Ready")
     print(f"│  Model: {status.get('current') or status.get('recommended') or 'not configured'}")
@@ -117,67 +127,54 @@ def run_interactive_setup(
     return {"settings": settings_result, "model_auth": auth_result, "agent": agent_result}
 
 
-def _interactive_oauth_login() -> dict[str, Any]:
-    bridge = oauth_bridge_report()
-    if not bridge["available"]:
-        print("│")
-        print("◇  OAuth bridge is not installed.")
-        print("│  Reinstall with:")
-        print("│  curl -fsSL https://raw.githubusercontent.com/Funbucket/lift/main/scripts/install/install.sh | bash")
-        print("│")
-        return {"status": "bridge_required", "bridge": bridge}
-
-    providers = list(OAUTH_PROVIDERS)
-    provider_index = _prompt_choice(
-        "◆  Choose OAuth provider:",
-        [OAUTH_PROVIDERS[name]["label"] for name in providers],
-        default=1,
-    )
-    provider = providers[provider_index - 1]
-    print("│")
-    print(f"◇  Starting OAuth login: {provider}")
-    return begin_oauth_login(provider)
-
-
-def _interactive_api_key_login() -> dict[str, Any]:
-    providers = list(API_KEY_PROVIDERS)
-    provider_index = _prompt_choice(
-        "◆  Choose API-key provider:",
-        [API_KEY_PROVIDERS[name]["label"] for name in providers],
-        default=1,
-    )
-    provider = providers[provider_index - 1]
-    spec = API_KEY_PROVIDERS[provider]
-    key = input(f"│  API key or env var [{spec['env_var']}]: ").strip() or spec["env_var"]
-    model = input(f"│  Model [{spec['default_model']}]: ").strip() or spec["default_model"]
-    return configure_api_key_provider(provider, api_key=key, model=model, make_default=True)
-
-
 def _configure_recommended_agent() -> dict[str, Any] | None:
     status = agent_status()
     recommended = status.get("recommended")
     if not isinstance(recommended, str):
         return None
-    should_set = input(f"│  Set default agent to {recommended}? [Y/n]: ").strip().lower()
-    if should_set in {"n", "no"}:
-        return None
     return set_default_agent(recommended)
 
 
-def _prompt_choice(prompt: str, choices: list[str], *, default: int) -> int:
-    print(prompt)
-    for index, choice in enumerate(choices, start=1):
-        marker = "●" if index == default else "○"
-        print(f"│  {marker} {index}. {choice}")
-    while True:
-        raw = input(f"│  Select [{default}]: ").strip()
-        if not raw:
-            return default
-        try:
-            selected = int(raw)
-        except ValueError:
-            print("│  Enter a number from the list.")
-            continue
-        if 1 <= selected <= len(choices):
-            return selected
-        print("│  Enter a number from the list.")
+def _run_setup_prompt() -> dict[str, Any]:
+    command = _setup_prompt_command()
+    if not command:
+        return {
+            "status": "error",
+            "message": "Feynman-style setup prompt requires node and @clack/prompts. Reinstall Lift with the default installer.",
+        }
+
+    with tempfile.TemporaryDirectory(prefix="lift-setup-") as temp_dir:
+        result_path = Path(temp_dir) / "result.json"
+        result = subprocess.run(
+            [*command, "--result-path", str(result_path)],
+            check=False,
+            text=True,
+        )
+        if result.returncode != 0 and not result_path.exists():
+            return {"status": "error", "message": "Setup prompt failed.", "returncode": result.returncode}
+        if not result_path.exists():
+            return {"status": "error", "message": "Setup prompt did not write a result."}
+        payload = json.loads(result_path.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else {"status": "error", "message": "Invalid setup prompt result."}
+
+
+def _setup_prompt_command() -> list[str] | None:
+    node = shutil.which("node")
+    if not node:
+        return None
+
+    override = os.environ.get("LIFT_SETUP_PROMPT")
+    if override:
+        return [node, override]
+
+    bridge = oauth_bridge_report()
+    installed = Path(str(bridge["install_dir"])) / "setup_prompt.mjs"
+    dependency = Path(str(bridge["install_dir"])) / "node_modules" / "@clack" / "prompts"
+    if installed.exists() and dependency.exists():
+        return [node, str(installed)]
+
+    bundled = Path(bundled_setup_prompt_path())
+    if bundled.exists():
+        return [node, str(bundled)]
+
+    return None

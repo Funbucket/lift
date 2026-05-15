@@ -1,5 +1,11 @@
 # Release Notes
 
+## 0.1.4
+
+- Replace hand-rolled setup selection with a Feynman-style `@clack/prompts` Node setup helper.
+- Bundle `setup_prompt.mjs` with the package and install it beside the OAuth bridge.
+- Use `@clack/prompts` for OAuth bridge text prompts.
+
 ## 0.1.3
 
 - Make `lift setup` start with a Feynman-style OAuth/API-key model access choice in interactive terminals.

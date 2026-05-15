@@ -3,7 +3,7 @@ set -eu
 
 LIFT_HOME="${LIFT_HOME:-"$HOME/.lift"}"
 LIFT_BIN_DIR="${LIFT_BIN_DIR:-"$HOME/.local/bin"}"
-LIFT_VERSION="${LIFT_VERSION:-0.1.3}"
+LIFT_VERSION="${LIFT_VERSION:-0.1.4}"
 LIFT_PACKAGE="${LIFT_PACKAGE:-${LIFT_SOURCE:-}}"
 LIFT_PACKAGE_URL="${LIFT_PACKAGE_URL:-}"
 LIFT_DEFAULT_RELEASE_BASE_URL="https://github.com/Funbucket/lift/releases/latest/download"
@@ -73,7 +73,8 @@ if [ "$LIFT_INSTALL_OAUTH_BRIDGE" = "1" ]; then
   BRIDGE_SOURCE="$("$VENV_DIR/bin/lift" model bridge-path --raw)"
   mkdir -p "$BRIDGE_DIR"
   cp "$BRIDGE_SOURCE" "$BRIDGE_DIR/pi_auth_bridge.mjs"
-  (cd "$BRIDGE_DIR" && npm install --omit=dev @mariozechner/pi-coding-agent@^0.73.0)
+  cp "$("$VENV_DIR/bin/lift" model setup-prompt-path --raw)" "$BRIDGE_DIR/setup_prompt.mjs"
+  (cd "$BRIDGE_DIR" && npm install --omit=dev @clack/prompts@^1.3.0 @mariozechner/pi-coding-agent@^0.73.0)
 fi
 
 echo "Lift installed."
