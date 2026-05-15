@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lift-agent"
-version = "0.1.6"
+version = "0.1.7"
 description = "Local cost-aware incrementality decision agent"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -32,6 +32,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 "lift.examples" = ["*.csv"]
 "lift.oauth" = ["*.mjs"]
+"lift.pi_assets" = ["*.mjs", "prompts/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

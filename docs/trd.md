@@ -55,8 +55,8 @@ Lift는 해당 repo에서 다음만 참고한다.
 
 1. **Interface Layer**
    - CLI
-   - terminal dashboard launched by `lift`
-   - REPL slash command
+   - natural-language Pi shell launched by `lift`
+   - legacy REPL slash command fallback
    - setup/quickstart commands
    - `model` command group
    - `agent` command group
@@ -111,7 +111,7 @@ Lift는 해당 repo에서 다음만 참고한다.
 
 ## 2.2 Feynman-style terminal runtime
 
-The installed `lift` command is the product entrypoint. When called without a subcommand it first checks model configuration. If no default model is configured and stdin/stdout are interactive terminals, it launches the Feynman-style setup prompt before any dashboard or REPL. Once setup completes, or when a model is already configured, it renders a terminal dashboard and then enters the local slash-command REPL. The dashboard must show:
+The installed `lift` command is the product entrypoint. When called without a subcommand it first checks model configuration. If no default model is configured and stdin/stdout are interactive terminals, it launches the Feynman-style setup prompt. Once setup completes, or when a model is already configured, it launches the Pi natural-language shell with Lift-specific tools and prompt templates. The legacy slash-command REPL remains available through `lift repl`.
 
 - configured model or recommended model
 - current directory
@@ -121,7 +121,7 @@ The installed `lift` command is the product entrypoint. When called without a su
 - available Codex/Claude integrations
 - supported Lift workflows
 
-The REPL must call the same workflow functions as the CLI commands. It must not create a separate execution path for analysis.
+The Pi extension tools and the legacy REPL must call the same workflow functions as the CLI commands. They must not create a separate execution path for analysis.
 
 ## 2.3 Model and agent configuration
 
@@ -494,7 +494,7 @@ trust_level
 
 ```
 lift
-lift chat [prompt]
+lift <natural-language prompt>
 lift setup
 lift quickstart
 lift inspect <dataset>
@@ -507,7 +507,7 @@ lift doctor
 lift status
 ```
 
-## 9.2 REPL slash commands
+## 9.2 Natural-language shell and legacy slash commands
 
 ```
 /inspect <dataset>

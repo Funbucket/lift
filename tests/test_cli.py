@@ -142,16 +142,19 @@ class CliTest(unittest.TestCase):
                 side_effect=[
                     {"current": None},
                     {"current": "openai-codex/gpt-5.5"},
+                    {"current": "openai-codex/gpt-5.5"},
                 ],
             ),
             patch("lift.interfaces.cli.run_interactive_setup", return_value={"cancelled": False}) as setup,
+            patch("lift.interfaces.cli.launch_pi_chat", return_value=0) as chat,
             patch("lift.interfaces.cli.run_repl") as repl,
         ):
             result = runner.invoke(app, [])
 
         self.assertEqual(result.exit_code, 0, result.output)
         setup.assert_called_once()
-        repl.assert_called_once()
+        chat.assert_called_once_with(initial_prompt=None)
+        repl.assert_not_called()
 
     def test_no_command_exits_after_cancelled_initial_setup(self) -> None:
         runner = CliRunner()
@@ -165,6 +168,20 @@ class CliTest(unittest.TestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
         setup.assert_called_once()
+        repl.assert_not_called()
+
+    def test_no_command_launches_natural_language_runtime_when_model_is_configured(self) -> None:
+        runner = CliRunner()
+        with (
+            patch("lift.interfaces.cli.is_interactive_terminal", return_value=True),
+            patch("lift.interfaces.cli.model_status", return_value={"current": "openai-codex/gpt-5.5"}),
+            patch("lift.interfaces.cli.launch_pi_chat", return_value=0) as chat,
+            patch("lift.interfaces.cli.run_repl") as repl,
+        ):
+            result = runner.invoke(app, [])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        chat.assert_called_once_with(initial_prompt=None)
         repl.assert_not_called()
 
     def test_setup_writes_settings(self) -> None:

@@ -14,7 +14,7 @@ Current implementation scope:
 - Local artifacts under `outputs/<run-id>/`
 - CLI simulation and target re-export from saved artifacts
 - YAML/JSON config files for schema, model, budget, and ROI settings
-- Feynman-style first-run model setup, then terminal dashboard when running `lift` with no command
+- Feynman-style first-run model setup, then a Pi-powered natural-language agent shell when running `lift`
 - `lift model ...` and `lift agent ...` configuration surfaces for model/auth and Codex/Claude integration
 
 `references/fractional_uplift` is reference-only and is not a runtime dependency.
@@ -79,7 +79,7 @@ When `node` and `npm` are available, the installer also installs the Feynman/Pi 
 curl -fsSL https://raw.githubusercontent.com/Funbucket/lift/main/scripts/install/install.sh | LIFT_INSTALL_OAUTH_BRIDGE=0 bash
 ```
 
-The bridge installs `@clack/prompts` and `@mariozechner/pi-coding-agent`, so `lift setup` uses Feynman-style arrow-key prompts and `lift model login <provider> --method oauth` opens the browser login flow.
+The bridge installs `@clack/prompts` and `@mariozechner/pi-coding-agent`, so `lift setup` uses Feynman-style arrow-key prompts, `lift model login <provider> --method oauth` opens the browser login flow, and `lift` launches the natural-language Pi shell with Lift tools.
 
 By default, installed runs write artifacts under `~/.lift/outputs`. Override with `--output-root`, `LIFT_HOME`, or `LIFT_OUTPUT_ROOT`.
 
@@ -103,15 +103,15 @@ Run a packaged example end-to-end:
 .venv/bin/lift quickstart
 ```
 
-Run `lift` with no command to open the local REPL:
+Run `lift` with no command to open the natural-language Lift shell:
 
 ```text
 Lift dashboard...
-lift> /inspect fixtures/randomized_coupon.csv
-lift> /analyze fixtures/randomized_coupon.csv --budget 5 --min-roi 0.1
-lift> /outputs
-lift> /exit
+> 이 캠페인의 incremental ROI는 얼마야? data.csv를 분석해서 알려줘.
+> 예산 100000000이면 누구에게 쿠폰을 보내야 해?
 ```
+
+The legacy slash-command REPL remains available with `lift repl`.
 
 Lift is designed as a standalone local CLI/runtime. Codex and Claude integration uses Lift skills, prompts, and agent/model configuration commands, not an MCP server.
 

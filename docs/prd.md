@@ -183,7 +183,7 @@ Lift는 다음 결과를 자동 생성해야 한다.
 - budget / ROI / target-ratio constraint
 - local CLI
 - Feynman-style local terminal app launched by `lift`
-- local REPL with slash workflows
+- natural-language Pi shell with Lift workflow tools
 - `lift model ...` model/auth configuration surface
 - `lift agent ...` Codex/Claude integration surface
 - one-line installer
@@ -210,7 +210,7 @@ curl -fsSL <install-url> | bash
 lift
 ```
 
-Running `lift` without arguments must behave like Feynman's first-run CLI. If no default model is configured, the first screen must be the Feynman-style model setup flow with arrow-key selection. After model setup completes, or on later runs where a model is already configured, `lift` should show a terminal dashboard with runtime status, configured model, working directory, output location, available agent integrations, and Lift slash workflows.
+Running `lift` without arguments must behave like Feynman's first-run CLI. If no default model is configured, the first screen must be the Feynman-style model setup flow with arrow-key selection. After model setup completes, or on later runs where a model is already configured, `lift` must launch a Feynman/Pi-style natural-language agent shell, not a command-only slash REPL. The shell must have Lift tools for inspect, analyze, simulate, report, output listing, and target export.
 
 Model/account access is split into three modes:
 
@@ -449,7 +449,7 @@ Core commands:
 
 ```
 lift
-lift chat [prompt]
+lift <natural-language prompt>
 lift setup
 lift quickstart
 lift analyze <dataset>
@@ -471,7 +471,7 @@ Flags:
 --dry-run
 ```
 
-## 13.2 REPL slash workflow
+## 13.2 Natural-language workflow
 
 ```
 /inspect data.csv

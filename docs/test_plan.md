@@ -281,7 +281,9 @@ Pass criteria:
 Test cases:
 
 - `lift` with no command starts model setup first on an interactive TTY when no default model exists
-- `lift` with no command renders the dashboard and enters the REPL after model setup, or when a default model already exists
+- `lift` with no command launches the Pi natural-language shell after model setup, or when a default model already exists
+- `lift <natural-language prompt>` forwards the prompt into the Pi shell
+- `lift runtime` reports Pi CLI, Lift extension, prompt template, and session paths
 - `/help`, `/doctor`, `/outputs`, and `/setup` return deterministic output
 - `lift model list` reports API-key providers, OAuth providers, current model, and bridge status
 - `lift model bridge` reports bundled and installer-managed bridge paths

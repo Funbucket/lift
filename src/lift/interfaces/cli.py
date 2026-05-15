@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from importlib.resources import as_file, files
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,7 @@ from lift.system.models import (
     set_default_model,
 )
 from lift.system.paths import default_output_root
+from lift.system.pi import launch_pi_chat, pi_runtime_status
 from lift.system.setup import is_interactive_terminal, run_interactive_setup, write_settings
 from lift.system.skills import install_skill
 from lift.workflow.run import AnalyzeConfig, analyze
@@ -29,11 +31,33 @@ from lift.workflow.simulate import refresh_report, report_run, simulate_run
 from lift.interfaces.repl import run_repl
 
 
-app = typer.Typer(invoke_without_command=True)
+app = typer.Typer(
+    invoke_without_command=True,
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
 model_app = typer.Typer(help="Configure model providers and defaults.")
 agent_app = typer.Typer(help="Configure external agent integrations.")
 app.add_typer(model_app, name="model")
 app.add_typer(agent_app, name="agent")
+
+_TOP_LEVEL_COMMANDS = {
+    "agent",
+    "analyze",
+    "doctor",
+    "export-targets",
+    "install-skills",
+    "inspect",
+    "model",
+    "outputs",
+    "quickstart",
+    "repl",
+    "report",
+    "runtime",
+    "setup",
+    "simulate",
+    "status",
+    "version",
+}
 
 
 @app.callback()
@@ -43,6 +67,15 @@ def callback(ctx: typer.Context) -> None:
             result = run_interactive_setup()
             if result.get("cancelled") or not _model_is_configured():
                 return
+        if is_interactive_terminal() and _model_is_configured():
+            prompt = " ".join(ctx.args).strip() or None
+            try:
+                code = launch_pi_chat(initial_prompt=prompt)
+            except Exception as exc:
+                typer.echo(f"Natural-language runtime unavailable: {exc}", err=True)
+                typer.echo("Falling back to legacy slash-command REPL.", err=True)
+            else:
+                raise typer.Exit(code=code)
         run_repl()
 
 
@@ -254,9 +287,19 @@ def status() -> None:
     _echo_json({"status": "ready"})
 
 
+@app.command("repl")
+def legacy_repl() -> None:
+    run_repl()
+
+
 @app.command("version")
 def version() -> None:
     _echo_json({"version": __version__})
+
+
+@app.command("runtime")
+def runtime() -> None:
+    _echo_json(pi_runtime_status())
 
 
 @model_app.command("list")
@@ -336,7 +379,32 @@ def agent_set(name: str) -> None:
 
 
 def main() -> None:
+    if _argv_is_initial_prompt(sys.argv[1:]):
+        _run_initial_prompt_from_argv(sys.argv[1:])
+        return
     app()
+
+
+def _argv_is_initial_prompt(args: list[str]) -> bool:
+    if not args:
+        return False
+    first = args[0]
+    if first.startswith("-"):
+        return False
+    return first not in _TOP_LEVEL_COMMANDS
+
+
+def _run_initial_prompt_from_argv(args: list[str]) -> None:
+    prompt = " ".join(args).strip()
+    if is_interactive_terminal() and not _model_is_configured():
+        result = run_interactive_setup()
+        if result.get("cancelled") or not _model_is_configured():
+            return
+    try:
+        code = launch_pi_chat(initial_prompt=prompt or None, print_mode=not is_interactive_terminal())
+    except Exception as exc:
+        _exit_error("natural_language_runtime_failed", str(exc))
+    raise typer.Exit(code=code)
 
 
 def _config_values(
