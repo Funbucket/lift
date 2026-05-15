@@ -138,7 +138,7 @@ lift agent status
 lift agent set <codex|claude>
 ```
 
-OAuth is represented as a provider capability, but real browser login requires a Pi-compatible auth bridge. Until that bridge is available, `lift model login ... --method oauth` must return a structured `bridge_required` status rather than silently pretending login succeeded.
+OAuth is represented as a provider capability, but real browser login requires a Pi-compatible auth bridge. The installer attempts to install that bridge automatically when `node` and `npm` are available. Until the bridge is available, `lift model login ... --method oauth` must return a structured `bridge_required` status rather than silently pretending login succeeded.
 
 API-key setup can write `~/.lift/auth.json` and default model settings. External CLI setup detects `codex` and `claude` binaries and tracks skill installation state.
 
@@ -163,7 +163,7 @@ The bridge must print one JSON object to stdout. A successful response uses:
 
 Lift then records the provider as OAuth-authenticated in `auth.json` and sets the default model in `settings.json`. Non-success statuses are returned to the user without mutating auth state.
 
-The package includes `lift.oauth/pi_auth_bridge.mjs` as the Feynman/Pi-compatible bridge shape. It depends on `@mariozechner/pi-coding-agent`; the installer can install it with `LIFT_INSTALL_OAUTH_BRIDGE=1`, which copies the bridge to `~/.lift/oauth-bridge` and installs the Node dependency there.
+The package includes `lift.oauth/pi_auth_bridge.mjs` as the Feynman/Pi-compatible bridge shape. It depends on `@mariozechner/pi-coding-agent`; the installer copies the bridge to `~/.lift/oauth-bridge` and installs the Node dependency there when `LIFT_INSTALL_OAUTH_BRIDGE=auto` can find `node` and `npm`. Set `LIFT_INSTALL_OAUTH_BRIDGE=0` to skip it.
 
 ---
 

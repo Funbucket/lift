@@ -66,20 +66,20 @@ LIFT_PACKAGE=. sh scripts/install/install.sh
 Install a built wheel through the user launcher script:
 
 ```bash
-LIFT_PACKAGE=dist/lift_agent-0.1.0-py3-none-any.whl sh scripts/install/install.sh
+LIFT_PACKAGE=dist/lift_agent-0.1.2-py3-none-any.whl sh scripts/install/install.sh
 lift doctor
 lift quickstart
 ```
 
 The installer also supports `LIFT_VERSION`, `LIFT_PACKAGE_URL`, `LIFT_RELEASE_BASE_URL`, `LIFT_HOME`, `LIFT_BIN_DIR`, and `PYTHON_BIN`.
 
-To install the optional Feynman/Pi OAuth bridge during install, use:
+When `node` and `npm` are available, the installer also installs the Feynman/Pi OAuth bridge under `~/.lift/oauth-bridge`. To disable that optional bridge install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Funbucket/lift/main/scripts/install/install.sh | LIFT_INSTALL_OAUTH_BRIDGE=1 bash
+curl -fsSL https://raw.githubusercontent.com/Funbucket/lift/main/scripts/install/install.sh | LIFT_INSTALL_OAUTH_BRIDGE=0 bash
 ```
 
-This requires `node` and `npm`, installs `@mariozechner/pi-coding-agent` under `~/.lift/oauth-bridge`, and lets `lift model login <provider> --method oauth` open the browser login flow.
+The bridge installs `@mariozechner/pi-coding-agent` and lets `lift setup` or `lift model login <provider> --method oauth` open the browser login flow.
 
 By default, installed runs write artifacts under `~/.lift/outputs`. Override with `--output-root`, `LIFT_HOME`, or `LIFT_OUTPUT_ROOT`.
 
@@ -127,6 +127,21 @@ lift agent set codex
 ```
 
 OAuth login follows the Feynman/Pi structure, but requires a Pi-compatible auth bridge. Until that bridge is installed, `lift model login <provider> --method oauth` reports `bridge_required` instead of storing unusable credentials.
+
+Interactive setup starts with the Feynman-style model access choice:
+
+```bash
+lift setup
+```
+
+```text
+┌  Lift setup
+│
+◆  Choose how to configure model access:
+│  ● 1. OAuth login (recommended: ChatGPT Plus/Pro, Claude Pro/Max, Copilot, ...)
+│  ○ 2. API key or custom provider (OpenAI, Anthropic, Google, ...)
+│  ○ 3. Cancel
+```
 
 Bridge commands:
 

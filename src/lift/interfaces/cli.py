@@ -21,7 +21,7 @@ from lift.system.models import (
     set_default_model,
 )
 from lift.system.paths import default_output_root
-from lift.system.setup import write_settings
+from lift.system.setup import is_interactive_terminal, run_interactive_setup, write_settings
 from lift.system.skills import install_skill
 from lift.workflow.run import AnalyzeConfig, analyze
 from lift.workflow.simulate import refresh_report, report_run, simulate_run
@@ -179,9 +179,19 @@ def setup(
     default_agent: str | None = None,
     default_provider: str | None = None,
     default_model: str | None = None,
+    non_interactive: bool = False,
     overwrite: bool = False,
 ) -> None:
     try:
+        if is_interactive_terminal() and not non_interactive:
+            run_interactive_setup(
+                output_root=output_root,
+                default_seed=default_seed,
+                baseline_model=baseline_model,
+                nuisance_model=nuisance_model,
+                overwrite=overwrite,
+            )
+            return
         _echo_json(
             write_settings(
                 output_root=output_root,

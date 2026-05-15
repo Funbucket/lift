@@ -3,11 +3,12 @@ set -eu
 
 LIFT_HOME="${LIFT_HOME:-"$HOME/.lift"}"
 LIFT_BIN_DIR="${LIFT_BIN_DIR:-"$HOME/.local/bin"}"
-LIFT_VERSION="${LIFT_VERSION:-0.1.2}"
+LIFT_VERSION="${LIFT_VERSION:-0.1.3}"
 LIFT_PACKAGE="${LIFT_PACKAGE:-${LIFT_SOURCE:-}}"
 LIFT_PACKAGE_URL="${LIFT_PACKAGE_URL:-}"
 LIFT_DEFAULT_RELEASE_BASE_URL="https://github.com/Funbucket/lift/releases/latest/download"
 LIFT_RELEASE_BASE_URL="${LIFT_RELEASE_BASE_URL:-}"
+LIFT_INSTALL_OAUTH_BRIDGE="${LIFT_INSTALL_OAUTH_BRIDGE:-auto}"
 VENV_DIR="$LIFT_HOME/venv"
 
 if [ -z "$LIFT_PACKAGE" ]; then
@@ -51,7 +52,15 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 ln -sf "$VENV_DIR/bin/lift" "$LIFT_BIN_DIR/lift"
 
-if [ "${LIFT_INSTALL_OAUTH_BRIDGE:-0}" = "1" ]; then
+if [ "$LIFT_INSTALL_OAUTH_BRIDGE" = "auto" ]; then
+  if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+    LIFT_INSTALL_OAUTH_BRIDGE="1"
+  else
+    LIFT_INSTALL_OAUTH_BRIDGE="0"
+  fi
+fi
+
+if [ "$LIFT_INSTALL_OAUTH_BRIDGE" = "1" ]; then
   if ! command -v node >/dev/null 2>&1; then
     echo "LIFT_INSTALL_OAUTH_BRIDGE=1 requires node on PATH." >&2
     exit 1
@@ -72,7 +81,7 @@ echo "Launcher: $LIFT_BIN_DIR/lift"
 echo "Home: $LIFT_HOME"
 echo "Package: $LIFT_PACKAGE"
 echo "Version: $LIFT_VERSION"
-if [ "${LIFT_INSTALL_OAUTH_BRIDGE:-0}" = "1" ]; then
+if [ "$LIFT_INSTALL_OAUTH_BRIDGE" = "1" ]; then
   echo "OAuth bridge: $LIFT_HOME/oauth-bridge/pi_auth_bridge.mjs"
 fi
 echo

@@ -1,5 +1,11 @@
 # Release Notes
 
+## 0.1.3
+
+- Make `lift setup` start with a Feynman-style OAuth/API-key model access choice in interactive terminals.
+- Install the Pi-compatible OAuth bridge automatically when `node` and `npm` are available.
+- Let OAuth bridge progress and browser-login instructions stream directly to the terminal.
+
 ## 0.1.2
 
 - Accept slash and bare commands in the local REPL, including `/help` and `help`.

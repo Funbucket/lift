@@ -285,6 +285,8 @@ Test cases:
 - `lift model list` reports API-key providers, OAuth providers, current model, and bridge status
 - `lift model bridge` reports bundled and installer-managed bridge paths
 - `lift model bridge-path --raw` returns a filesystem path that exists after wheel install
+- `lift setup` on a TTY starts with OAuth/API-key/Cancel model access choices
+- `lift setup --non-interactive` and non-TTY setup keep structured JSON output
 - `lift model login <provider> --method api-key` writes `auth.json` and default model settings
 - `lift model login <provider> --method oauth` returns `bridge_required` when no Pi-compatible auth bridge is configured
 - `lift model login <provider> --method oauth` calls `LIFT_OAUTH_BRIDGE` when configured and persists successful OAuth provider metadata

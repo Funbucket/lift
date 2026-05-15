@@ -226,7 +226,8 @@ def _run_oauth_bridge(provider: str, bridge: dict[str, Any]) -> dict[str, Any]:
         result = subprocess.run(
             args,
             check=False,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=None,
             text=True,
             timeout=timeout,
         )
@@ -259,7 +260,6 @@ def _run_oauth_bridge(provider: str, bridge: dict[str, Any]) -> dict[str, Any]:
             "status": "bridge_failed",
             "message": "OAuth bridge did not return JSON on stdout.",
             "stdout": result.stdout.strip(),
-            "stderr": result.stderr.strip(),
             "bridge": bridge,
         }
 
