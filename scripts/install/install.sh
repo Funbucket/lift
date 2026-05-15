@@ -51,11 +51,30 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 ln -sf "$VENV_DIR/bin/lift" "$LIFT_BIN_DIR/lift"
 
+if [ "${LIFT_INSTALL_OAUTH_BRIDGE:-0}" = "1" ]; then
+  if ! command -v node >/dev/null 2>&1; then
+    echo "LIFT_INSTALL_OAUTH_BRIDGE=1 requires node on PATH." >&2
+    exit 1
+  fi
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "LIFT_INSTALL_OAUTH_BRIDGE=1 requires npm on PATH." >&2
+    exit 1
+  fi
+  BRIDGE_DIR="$LIFT_HOME/oauth-bridge"
+  BRIDGE_SOURCE="$("$VENV_DIR/bin/lift" model bridge-path --raw)"
+  mkdir -p "$BRIDGE_DIR"
+  cp "$BRIDGE_SOURCE" "$BRIDGE_DIR/pi_auth_bridge.mjs"
+  (cd "$BRIDGE_DIR" && npm install --omit=dev @mariozechner/pi-coding-agent@^0.73.0)
+fi
+
 echo "Lift installed."
 echo "Launcher: $LIFT_BIN_DIR/lift"
 echo "Home: $LIFT_HOME"
 echo "Package: $LIFT_PACKAGE"
 echo "Version: $LIFT_VERSION"
+if [ "${LIFT_INSTALL_OAUTH_BRIDGE:-0}" = "1" ]; then
+  echo "OAuth bridge: $LIFT_HOME/oauth-bridge/pi_auth_bridge.mjs"
+fi
 echo
 echo "Make sure $LIFT_BIN_DIR is on PATH, then run:"
 echo "  lift setup"

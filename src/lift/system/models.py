@@ -3,10 +3,13 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import shutil
 import subprocess
+from importlib.resources import files
+from pathlib import Path
 from typing import Any
 
-from lift.system.paths import auth_path, settings_path
+from lift.system.paths import auth_path, lift_home, settings_path
 
 
 API_KEY_PROVIDERS = {
@@ -66,6 +69,24 @@ def model_status() -> dict[str, Any]:
         "oauth_bridge": _oauth_bridge_status(),
         "available_models": available,
     }
+
+
+def oauth_bridge_report() -> dict[str, Any]:
+    status = _oauth_bridge_status()
+    return {
+        **status,
+        "bundled_script": str(_bundled_bridge_path()),
+        "installed_script": str(_installed_bridge_path()),
+        "install_dir": str(_installed_bridge_dir()),
+        "node": shutil.which("node"),
+        "npm": shutil.which("npm"),
+        "npm_package": "@mariozechner/pi-coding-agent",
+        "install_env": "LIFT_INSTALL_OAUTH_BRIDGE=1",
+    }
+
+
+def bundled_oauth_bridge_path() -> str:
+    return str(_bundled_bridge_path())
 
 
 def configure_api_key_provider(
@@ -159,11 +180,30 @@ def _oauth_provider_status(name: str, spec: dict[str, str], auth: dict[str, Any]
 
 
 def _oauth_bridge_status() -> dict[str, Any]:
-    bridge = os.environ.get("LIFT_OAUTH_BRIDGE")
+    env_bridge = os.environ.get("LIFT_OAUTH_BRIDGE")
+    if env_bridge:
+        return {
+            "available": True,
+            "command": env_bridge,
+            "kind": "pi-auth",
+            "source": "env",
+        }
+
+    installed = _installed_bridge_path()
+    installed_dependency = _installed_bridge_dir() / "node_modules" / "@mariozechner" / "pi-coding-agent"
+    if installed.exists() and installed_dependency.exists() and shutil.which("node"):
+        return {
+            "available": True,
+            "command": f"node {shlex.quote(str(installed))}",
+            "kind": "pi-auth",
+            "source": "installed",
+        }
+
     return {
-        "available": bool(bridge),
-        "command": bridge,
+        "available": False,
+        "command": env_bridge,
         "kind": "pi-auth",
+        "source": None,
     }
 
 
@@ -280,6 +320,19 @@ def _json_object(value: str) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         return None
     return payload if isinstance(payload, dict) else None
+
+
+def _bundled_bridge_path() -> Path:
+    resource = files("lift.oauth").joinpath("pi_auth_bridge.mjs")
+    return Path(str(resource))
+
+
+def _installed_bridge_dir() -> Path:
+    return lift_home() / "oauth-bridge"
+
+
+def _installed_bridge_path() -> Path:
+    return _installed_bridge_dir() / "pi_auth_bridge.mjs"
 
 
 def _current_model(settings: dict[str, Any]) -> str | None:

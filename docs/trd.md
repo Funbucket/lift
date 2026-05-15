@@ -129,6 +129,8 @@ Lift exposes Feynman-like command groups:
 
 ```bash
 lift model list
+lift model bridge
+lift model bridge-path --raw
 lift model login <provider> --method oauth
 lift model login <provider> --method api-key
 lift model set <provider/model>
@@ -142,7 +144,7 @@ API-key setup can write `~/.lift/auth.json` and default model settings. External
 
 ### OAuth bridge protocol
 
-Lift discovers the bridge through `LIFT_OAUTH_BRIDGE`. When present, `lift model login <provider> --method oauth` runs:
+Lift discovers the bridge through `LIFT_OAUTH_BRIDGE` first, then through the installer-managed bridge under `~/.lift/oauth-bridge`. When present, `lift model login <provider> --method oauth` runs:
 
 ```bash
 $LIFT_OAUTH_BRIDGE login <provider> --auth-path ~/.lift/auth.json --settings-path ~/.lift/settings.json
@@ -161,7 +163,7 @@ The bridge must print one JSON object to stdout. A successful response uses:
 
 Lift then records the provider as OAuth-authenticated in `auth.json` and sets the default model in `settings.json`. Non-success statuses are returned to the user without mutating auth state.
 
-The repository includes `scripts/oauth/pi-auth-bridge.mjs` as the Feynman/Pi-compatible bridge shape. It depends on `@mariozechner/pi-coding-agent`; production packaging must bundle that Node dependency or install an equivalent bridge before OAuth is considered release-ready.
+The package includes `lift.oauth/pi_auth_bridge.mjs` as the Feynman/Pi-compatible bridge shape. It depends on `@mariozechner/pi-coding-agent`; the installer can install it with `LIFT_INSTALL_OAUTH_BRIDGE=1`, which copies the bridge to `~/.lift/oauth-bridge` and installs the Node dependency there.
 
 ---
 

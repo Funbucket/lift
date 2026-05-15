@@ -283,6 +283,8 @@ Test cases:
 - `lift` with no command renders the dashboard and enters the REPL
 - `/help`, `/doctor`, `/outputs`, and `/setup` return deterministic output
 - `lift model list` reports API-key providers, OAuth providers, current model, and bridge status
+- `lift model bridge` reports bundled and installer-managed bridge paths
+- `lift model bridge-path --raw` returns a filesystem path that exists after wheel install
 - `lift model login <provider> --method api-key` writes `auth.json` and default model settings
 - `lift model login <provider> --method oauth` returns `bridge_required` when no Pi-compatible auth bridge is configured
 - `lift model login <provider> --method oauth` calls `LIFT_OAUTH_BRIDGE` when configured and persists successful OAuth provider metadata

@@ -12,7 +12,14 @@ from lift.data.load import load_csv, read_json, read_mapping
 from lift.data.schema import infer_schema, validate_rows
 from lift.system.agents import agent_status, set_default_agent
 from lift.system.doctor import doctor_report
-from lift.system.models import begin_oauth_login, configure_api_key_provider, model_status, set_default_model
+from lift.system.models import (
+    begin_oauth_login,
+    bundled_oauth_bridge_path,
+    configure_api_key_provider,
+    model_status,
+    oauth_bridge_report,
+    set_default_model,
+)
 from lift.system.paths import default_output_root
 from lift.system.setup import write_settings
 from lift.system.skills import install_skill
@@ -275,6 +282,20 @@ def model_set(spec: str) -> None:
         _echo_json(set_default_model(spec))
     except Exception as exc:
         _exit_error("model_set_failed", str(exc))
+
+
+@model_app.command("bridge")
+def model_bridge() -> None:
+    _echo_json(oauth_bridge_report())
+
+
+@model_app.command("bridge-path")
+def model_bridge_path(raw: bool = False) -> None:
+    path = bundled_oauth_bridge_path()
+    if raw:
+        typer.echo(path)
+    else:
+        _echo_json({"bridge_path": path})
 
 
 @agent_app.command("status")

@@ -73,6 +73,14 @@ lift quickstart
 
 The installer also supports `LIFT_VERSION`, `LIFT_PACKAGE_URL`, `LIFT_RELEASE_BASE_URL`, `LIFT_HOME`, `LIFT_BIN_DIR`, and `PYTHON_BIN`.
 
+To install the optional Feynman/Pi OAuth bridge during install, use:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Funbucket/lift/main/scripts/install/install.sh | LIFT_INSTALL_OAUTH_BRIDGE=1 bash
+```
+
+This requires `node` and `npm`, installs `@mariozechner/pi-coding-agent` under `~/.lift/oauth-bridge`, and lets `lift model login <provider> --method oauth` open the browser login flow.
+
 By default, installed runs write artifacts under `~/.lift/outputs`. Override with `--output-root`, `LIFT_HOME`, or `LIFT_OUTPUT_ROOT`.
 
 ## CLI
@@ -120,15 +128,14 @@ lift agent set codex
 
 OAuth login follows the Feynman/Pi structure, but requires a Pi-compatible auth bridge. Until that bridge is installed, `lift model login <provider> --method oauth` reports `bridge_required` instead of storing unusable credentials.
 
-Development bridge shape:
+Bridge commands:
 
 ```bash
-npm install @mariozechner/pi-coding-agent
-LIFT_OAUTH_BRIDGE="node scripts/oauth/pi-auth-bridge.mjs" \
-  lift model login openai-codex --method oauth
+lift model bridge
+lift model bridge-path --raw
 ```
 
-The bridge opens the provider login URL in the browser, lets the Pi auth layer write credentials to Lift's auth path, and returns authenticated model ids to Lift. The production installer still needs to bundle or install the Node bridge dependencies before OAuth can be treated as end-user ready.
+The bridge opens the provider login URL in the browser, lets the Pi auth layer write credentials to Lift's auth path, and returns authenticated model ids to Lift.
 
 Install Lift guidance into Codex or a repo-local agent directory:
 

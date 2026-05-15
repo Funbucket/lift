@@ -28,6 +28,8 @@ PYTHON_BIN="$PYTHON_BIN" \
   sh "$INSTALLER"
 
 PATH="$SMOKE_DIR/bin:$PATH" LIFT_HOME="$SMOKE_DIR/home" lift setup --overwrite
+BRIDGE_PATH="$(PATH="$SMOKE_DIR/bin:$PATH" LIFT_HOME="$SMOKE_DIR/home" lift model bridge-path --raw)"
+test -f "$BRIDGE_PATH"
 PATH="$SMOKE_DIR/bin:$PATH" LIFT_HOME="$SMOKE_DIR/home" lift doctor
 PATH="$SMOKE_DIR/bin:$PATH" LIFT_HOME="$SMOKE_DIR/home" lift install-skills --target repo --project-root "$SMOKE_DIR" --overwrite
 PATH="$SMOKE_DIR/bin:$PATH" LIFT_HOME="$SMOKE_DIR/home" lift quickstart --budget 5 --min-roi 0.1

@@ -220,6 +220,20 @@ class CliTest(unittest.TestCase):
             payload = json.loads(result.output)
             self.assertEqual(payload["status"], "bridge_required")
 
+    def test_model_bridge_reports_bundled_script(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = runner.invoke(app, ["model", "bridge"], env={"LIFT_HOME": str(Path(temp_dir) / "home")})
+            self.assertEqual(result.exit_code, 0, result.output)
+            payload = json.loads(result.output)
+            self.assertIn("bundled_script", payload)
+            self.assertTrue(Path(payload["bundled_script"]).exists())
+            self.assertEqual(payload["npm_package"], "@mariozechner/pi-coding-agent")
+
+            raw = runner.invoke(app, ["model", "bridge-path", "--raw"])
+            self.assertEqual(raw.exit_code, 0, raw.output)
+            self.assertTrue(Path(raw.output.strip()).exists())
+
     def test_model_oauth_login_uses_bridge_and_persists_model(self) -> None:
         runner = CliRunner()
         with tempfile.TemporaryDirectory() as temp_dir:
