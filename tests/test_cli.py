@@ -316,6 +316,44 @@ class CliTest(unittest.TestCase):
             self.assertEqual(settings["default_provider"], "openai-codex")
             self.assertEqual(settings["default_model"], "gpt-oauth")
 
+    def test_model_oauth_login_reads_bridge_result_file(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            home = root / "home"
+            bridge = root / "fake_bridge_result_file.py"
+            bridge.write_text(
+                "\n".join(
+                    [
+                        "import json",
+                        "import sys",
+                        "result_path = sys.argv[sys.argv.index('--result-path') + 1]",
+                        "print('interactive prompt output')",
+                        "open(result_path, 'w', encoding='utf-8').write(json.dumps({",
+                        "  'status': 'ok',",
+                        "  'provider': sys.argv[2],",
+                        "  'models': ['gpt-file'],",
+                        "  'default_model': 'gpt-file'",
+                        "}))",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            result = runner.invoke(
+                app,
+                ["model", "login", "openai-codex", "--method", "oauth"],
+                env={
+                    "LIFT_HOME": str(home),
+                    "LIFT_OAUTH_BRIDGE": f"{sys.executable} {bridge}",
+                },
+            )
+
+            self.assertEqual(result.exit_code, 0, result.output)
+            payload = json.loads(result.output)
+            self.assertEqual(payload["status"], "ok")
+            self.assertEqual(payload["model"], "gpt-file")
+
     def test_model_oauth_login_returns_bridge_error_payload(self) -> None:
         runner = CliRunner()
         with tempfile.TemporaryDirectory() as temp_dir:

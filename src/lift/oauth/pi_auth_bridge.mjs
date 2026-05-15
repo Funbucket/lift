@@ -2,6 +2,7 @@
 import { spawn } from "node:child_process";
 import { stderr as output } from "node:process";
 import { dirname, resolve } from "node:path";
+import { writeFileSync } from "node:fs";
 import { text } from "@clack/prompts";
 
 function parseArgs(argv) {
@@ -35,6 +36,15 @@ function openUrl(url) {
   } catch {
     return false;
   }
+}
+
+function writeResult(options, payload) {
+  const text = JSON.stringify(payload) + "\n";
+  if (options["result-path"]) {
+    writeFileSync(resolve(options["result-path"]), text, "utf8");
+    return;
+  }
+  process.stdout.write(text);
 }
 
 async function main() {
@@ -73,18 +83,19 @@ async function main() {
     .filter((model) => model.provider === provider)
     .map((model) => model.id);
 
-  process.stdout.write(JSON.stringify({
+  writeResult(options, {
     status: "ok",
     provider,
     models,
     default_model: models[0] ?? null,
-  }) + "\n");
+  });
 }
 
 main().catch((error) => {
-  process.stdout.write(JSON.stringify({
+  const { options } = parseArgs(process.argv.slice(2));
+  writeResult(options, {
     status: "error",
     message: error instanceof Error ? error.message : String(error),
-  }) + "\n");
+  });
   process.exitCode = 1;
 });

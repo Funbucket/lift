@@ -109,6 +109,13 @@ def run_interactive_setup(
     else:
         auth_result = {"status": "error", "message": f"Unknown setup method: {method}"}
 
+    if not _auth_completed(auth_result):
+        print("│")
+        print("◆  Model setup incomplete")
+        print(f"│  {str((auth_result or {}).get('message') or 'Model provider login did not complete.')}")
+        print("└  Run lift again to retry setup.")
+        return {"settings": settings_result, "model_auth": auth_result, "cancelled": False}
+
     agent_result = _configure_recommended_agent()
     status = model_status()
     print("│")
@@ -125,6 +132,14 @@ def run_interactive_setup(
         print(f"│  Agent: {agent_result.get('default_agent')}")
     print("└  Lift is ready.")
     return {"settings": settings_result, "model_auth": auth_result, "agent": agent_result}
+
+
+def _auth_completed(auth_result: dict[str, Any] | None) -> bool:
+    if not auth_result:
+        return False
+    if str(auth_result.get("status", "")).lower() not in {"ok", "success", "authenticated", "logged_in"}:
+        return False
+    return isinstance(model_status().get("current"), str)
 
 
 def _configure_recommended_agent() -> dict[str, Any] | None:

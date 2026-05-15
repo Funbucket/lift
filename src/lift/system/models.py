@@ -5,6 +5,8 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
+import tempfile
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -216,34 +218,41 @@ def _run_oauth_bridge(provider: str, bridge: dict[str, Any]) -> dict[str, Any]:
     if not command:
         raise ValueError("OAuth bridge command is empty")
 
-    args = [
-        *shlex.split(command),
-        "login",
-        provider,
-        "--auth-path",
-        str(auth_path()),
-        "--settings-path",
-        str(settings_path()),
-    ]
     timeout = int(os.environ.get("LIFT_OAUTH_TIMEOUT_SECONDS", "900"))
-    try:
-        result = subprocess.run(
-            args,
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=None,
-            text=True,
-            timeout=timeout,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return {
-            "provider": provider,
-            "status": "bridge_failed",
-            "message": str(exc),
-            "bridge": bridge,
-        }
+    with tempfile.TemporaryDirectory(prefix="lift-oauth-") as temp_dir:
+        result_path = Path(temp_dir) / "result.json"
+        args = [
+            *shlex.split(command),
+            "login",
+            provider,
+            "--auth-path",
+            str(auth_path()),
+            "--settings-path",
+            str(settings_path()),
+            "--result-path",
+            str(result_path),
+        ]
+        capture_stdout = not (sys.stdin.isatty() and sys.stdout.isatty())
+        try:
+            result = subprocess.run(
+                args,
+                check=False,
+                stdout=subprocess.PIPE if capture_stdout else None,
+                stderr=None,
+                text=True,
+                timeout=timeout,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return {
+                "provider": provider,
+                "status": "bridge_failed",
+                "message": str(exc),
+                "bridge": bridge,
+            }
 
-    payload = _json_object(result.stdout)
+        stdout = result.stdout or ""
+        payload = _json_file(result_path) or _json_object(stdout)
+
     if result.returncode != 0:
         if payload is not None:
             payload.setdefault("provider", provider)
@@ -253,7 +262,7 @@ def _run_oauth_bridge(provider: str, bridge: dict[str, Any]) -> dict[str, Any]:
         return {
             "provider": provider,
             "status": "bridge_failed",
-            "message": (result.stderr or result.stdout).strip(),
+            "message": stdout.strip(),
             "returncode": result.returncode,
             "bridge": bridge,
         }
@@ -263,7 +272,7 @@ def _run_oauth_bridge(provider: str, bridge: dict[str, Any]) -> dict[str, Any]:
             "provider": provider,
             "status": "bridge_failed",
             "message": "OAuth bridge did not return JSON on stdout.",
-            "stdout": result.stdout.strip(),
+            "stdout": stdout.strip(),
             "bridge": bridge,
         }
 
@@ -324,6 +333,12 @@ def _json_object(value: str) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         return None
     return payload if isinstance(payload, dict) else None
+
+
+def _json_file(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    return _json_object(path.read_text(encoding="utf-8"))
 
 
 def _bundled_bridge_path() -> Path:

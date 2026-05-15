@@ -3,7 +3,7 @@ set -eu
 
 LIFT_HOME="${LIFT_HOME:-"$HOME/.lift"}"
 LIFT_BIN_DIR="${LIFT_BIN_DIR:-"$HOME/.local/bin"}"
-LIFT_VERSION="${LIFT_VERSION:-0.1.5}"
+LIFT_VERSION="${LIFT_VERSION:-0.1.6}"
 LIFT_PACKAGE="${LIFT_PACKAGE:-${LIFT_SOURCE:-}}"
 LIFT_PACKAGE_URL="${LIFT_PACKAGE_URL:-}"
 LIFT_DEFAULT_RELEASE_BASE_URL="https://github.com/Funbucket/lift/releases/latest/download"
@@ -87,6 +87,6 @@ if [ "$LIFT_INSTALL_OAUTH_BRIDGE" = "1" ]; then
 fi
 echo
 echo "Make sure $LIFT_BIN_DIR is on PATH, then run:"
-echo "  lift setup"
+echo "  lift"
 echo "  lift doctor"
 echo "  lift quickstart"
