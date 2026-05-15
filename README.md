@@ -22,7 +22,7 @@ Current implementation scope:
 One-line installer shape for a published wheel:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/scripts/install/install.sh | LIFT_PACKAGE_URL=https://github.com/<owner>/<repo>/releases/latest/download/lift_agent-0.1.0-py3-none-any.whl bash
+curl -fsSL https://raw.githubusercontent.com/Funbucket/lift/main/scripts/install/install.sh | LIFT_PACKAGE_URL=https://github.com/Funbucket/lift/releases/latest/download/lift_agent-0.1.0-py3-none-any.whl bash
 lift setup
 lift doctor
 lift quickstart
