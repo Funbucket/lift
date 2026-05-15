@@ -220,6 +220,35 @@ Model/account access is split into three modes:
 
 Lift must not claim OAuth credentials are available unless the OAuth bridge has completed a real provider login.
 
+## 7.5 Feynman UX implementation source
+
+Lift UX must be implemented by referencing the cloned Feynman source code under `references/feynman`, not by inventing a separate interaction model.
+
+Required reference files:
+
+- `references/feynman/src/setup/prompts.ts`
+  - wraps `@clack/prompts`
+  - provides direction-key `select`, checkbox-style `multiselect`, `text`, `confirm`, `intro`, and `outro`
+  - Lift setup UX must match this interaction model rather than numeric-only prompts
+- `references/feynman/src/model/commands.ts`
+  - `runModelSetup()` defines the model access flow:
+    - OAuth login
+    - API key or custom provider
+    - Cancel
+  - `loginModelProvider()` defines browser OAuth behavior through `AuthStorage.login()`
+  - Lift model setup must follow this sequence and wording unless there is a product-specific reason documented in PRD/TRD
+- `references/feynman/src/setup/setup.ts`
+  - defines full setup progression after model auth
+  - Lift should mirror the staged setup style: model auth, package status, optional packages, ready summary
+
+Implementation requirement:
+
+- Do not hand-roll terminal selection UX in Python when the target is Feynman parity.
+- Use a Node setup/auth helper with `@clack/prompts`, or another implementation that demonstrably matches Feynman's `@clack/prompts` behavior.
+- The user must be able to move choices with arrow keys, confirm with Enter, and see selected prompts collapse from active `◆` to completed `◇` sections.
+- OAuth login should open the browser automatically and continue when the callback completes; manual paste of redirect URL/auth code should appear only when the provider bridge requests it.
+- The setup screen must not require users to copy the `Auth URL` manually when the browser callback flow succeeds.
+
 ## 7.3 Post-MVP 후보
 
 - multi-treatment allocation
