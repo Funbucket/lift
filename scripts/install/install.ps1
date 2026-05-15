@@ -6,6 +6,7 @@ param(
   [string]$LiftVersion = $(if ($env:LIFT_VERSION) { $env:LIFT_VERSION } else { "0.1.0" }),
   [string]$LiftPackageUrl = $(if ($env:LIFT_PACKAGE_URL) { $env:LIFT_PACKAGE_URL } else { "" }),
   [string]$LiftReleaseBaseUrl = $(if ($env:LIFT_RELEASE_BASE_URL) { $env:LIFT_RELEASE_BASE_URL } else { "" }),
+  [string]$LiftDefaultReleaseBaseUrl = "https://github.com/Funbucket/lift/releases/latest/download",
   [string]$PythonBin = $(if ($env:PYTHON_BIN) { $env:PYTHON_BIN } else { "python" })
 )
 
@@ -24,6 +25,11 @@ if (!$LiftPackage) {
     Invoke-WebRequest -Uri "$LiftReleaseBaseUrl/lift_agent-$LiftVersion-py3-none-any.whl" -OutFile $LiftPackage
   } elseif (Test-Path $cwdPyproject) {
     $LiftPackage = $cwdPackage
+  } elseif ($LiftDefaultReleaseBaseUrl) {
+    $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+    $LiftPackage = Join-Path $tempDir "lift_agent-$LiftVersion-py3-none-any.whl"
+    Invoke-WebRequest -Uri "$LiftDefaultReleaseBaseUrl/lift_agent-$LiftVersion-py3-none-any.whl" -OutFile $LiftPackage
   } else {
     Write-Error "Lift package not specified. Run from the repo root, set LIFT_PACKAGE, or set LIFT_PACKAGE_URL for remote installs."
     exit 1

@@ -6,6 +6,7 @@ LIFT_BIN_DIR="${LIFT_BIN_DIR:-"$HOME/.local/bin"}"
 LIFT_VERSION="${LIFT_VERSION:-0.1.0}"
 LIFT_PACKAGE="${LIFT_PACKAGE:-${LIFT_SOURCE:-}}"
 LIFT_PACKAGE_URL="${LIFT_PACKAGE_URL:-}"
+LIFT_DEFAULT_RELEASE_BASE_URL="https://github.com/Funbucket/lift/releases/latest/download"
 LIFT_RELEASE_BASE_URL="${LIFT_RELEASE_BASE_URL:-}"
 VENV_DIR="$LIFT_HOME/venv"
 
@@ -20,6 +21,10 @@ if [ -z "$LIFT_PACKAGE" ]; then
     curl -fsSL "$LIFT_RELEASE_BASE_URL/lift_agent-$LIFT_VERSION-py3-none-any.whl" -o "$LIFT_PACKAGE"
   elif [ -f "$(pwd)/pyproject.toml" ]; then
     LIFT_PACKAGE="$(pwd)"
+  elif [ -n "$LIFT_DEFAULT_RELEASE_BASE_URL" ]; then
+    LIFT_INSTALL_TMP="$(mktemp -d "${TMPDIR:-/tmp}/lift-install.XXXXXX")"
+    LIFT_PACKAGE="$LIFT_INSTALL_TMP/lift_agent-$LIFT_VERSION-py3-none-any.whl"
+    curl -fsSL "$LIFT_DEFAULT_RELEASE_BASE_URL/lift_agent-$LIFT_VERSION-py3-none-any.whl" -o "$LIFT_PACKAGE"
   else
     echo "Lift package not specified." >&2
     echo "Run from the repo root, set LIFT_PACKAGE, or set LIFT_PACKAGE_URL for curl-pipe installs." >&2
