@@ -22,6 +22,10 @@ def settings_path() -> Path:
     return lift_home() / "settings.json"
 
 
+def auth_path() -> Path:
+    return lift_home() / "auth.json"
+
+
 def ensure_runtime_dirs() -> dict[str, str | list[str]]:
     home = lift_home()
     outputs = Path(default_output_root())

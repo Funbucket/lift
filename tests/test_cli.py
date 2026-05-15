@@ -118,6 +118,19 @@ class CliTest(unittest.TestCase):
         self.assertNotIn("mcp", help_result.output)
         self.assertNotIn("mcp-config", help_result.output)
 
+    def test_no_command_opens_dashboard_repl(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = runner.invoke(
+                app,
+                [],
+                input="/exit\n",
+                env={"LIFT_HOME": str(Path(temp_dir) / "home")},
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("/analyze", result.output)
+            self.assertIn("Type /help", result.output)
+
     def test_setup_writes_settings(self) -> None:
         runner = CliRunner()
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -165,6 +178,57 @@ class CliTest(unittest.TestCase):
             text = skill_path.read_text(encoding="utf-8")
             self.assertIn("lift analyze", text)
             self.assertIn("Do not invent incremental ROI", text)
+
+    def test_model_api_key_login_writes_auth_and_default_model(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir) / "home"
+            result = runner.invoke(
+                app,
+                [
+                    "model",
+                    "login",
+                    "openai",
+                    "--method",
+                    "api-key",
+                    "--api-key",
+                    "test-key",
+                    "--model",
+                    "gpt-test",
+                ],
+                env={"LIFT_HOME": str(home)},
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            payload = json.loads(result.output)
+            self.assertEqual(payload["provider"], "openai")
+            auth = json.loads((home / "auth.json").read_text(encoding="utf-8"))
+            settings = json.loads((home / "settings.json").read_text(encoding="utf-8"))
+            self.assertEqual(auth["providers"]["openai"]["type"], "api_key")
+            self.assertEqual(settings["default_provider"], "openai")
+            self.assertEqual(settings["default_model"], "gpt-test")
+
+    def test_model_oauth_login_reports_bridge_requirement(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = runner.invoke(
+                app,
+                ["model", "login", "openai-codex", "--method", "oauth"],
+                env={"LIFT_HOME": str(Path(temp_dir) / "home"), "LIFT_OAUTH_BRIDGE": ""},
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            payload = json.loads(result.output)
+            self.assertEqual(payload["status"], "bridge_required")
+
+    def test_agent_set_writes_default_agent(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir) / "home"
+            result = runner.invoke(app, ["agent", "set", "codex"], env={"LIFT_HOME": str(home)})
+            self.assertEqual(result.exit_code, 0, result.output)
+            payload = json.loads(result.output)
+            self.assertEqual(payload["default_agent"], "codex")
+            settings = json.loads((home / "settings.json").read_text(encoding="utf-8"))
+            self.assertEqual(settings["default_agent"], "codex")
 
     def test_quickstart_runs_packaged_example(self) -> None:
         runner = CliRunner()

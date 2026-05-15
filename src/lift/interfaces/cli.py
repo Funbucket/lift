@@ -10,7 +10,9 @@ import typer
 from lift import __version__
 from lift.data.load import load_csv, read_json, read_mapping
 from lift.data.schema import infer_schema, validate_rows
+from lift.system.agents import agent_status, set_default_agent
 from lift.system.doctor import doctor_report
+from lift.system.models import begin_oauth_login, configure_api_key_provider, model_status, set_default_model
 from lift.system.paths import default_output_root
 from lift.system.setup import write_settings
 from lift.system.skills import install_skill
@@ -20,6 +22,10 @@ from lift.interfaces.repl import run_repl
 
 
 app = typer.Typer(invoke_without_command=True)
+model_app = typer.Typer(help="Configure model providers and defaults.")
+agent_app = typer.Typer(help="Configure external agent integrations.")
+app.add_typer(model_app, name="model")
+app.add_typer(agent_app, name="agent")
 
 
 @app.callback()
@@ -163,6 +169,9 @@ def setup(
     default_seed: int = 123,
     baseline_model: str = "ridge",
     nuisance_model: str = "ridge",
+    default_agent: str | None = None,
+    default_provider: str | None = None,
+    default_model: str | None = None,
     overwrite: bool = False,
 ) -> None:
     try:
@@ -172,6 +181,9 @@ def setup(
                 default_seed=default_seed,
                 baseline_model=baseline_model,
                 nuisance_model=nuisance_model,
+                default_agent=default_agent,
+                default_provider=default_provider,
+                default_model=default_model,
                 overwrite=overwrite,
             )
         )
@@ -223,6 +235,59 @@ def status() -> None:
 @app.command("version")
 def version() -> None:
     _echo_json({"version": __version__})
+
+
+@model_app.command("list")
+def model_list() -> None:
+    _echo_json(model_status())
+
+
+@model_app.command("login")
+def model_login(
+    provider: str | None = typer.Argument(None),
+    method: str = "oauth",
+    api_key: str | None = None,
+    model: str | None = None,
+    no_default: bool = False,
+) -> None:
+    try:
+        if method == "oauth":
+            _echo_json(begin_oauth_login(provider or "openai-codex"))
+            return
+        if method == "api-key":
+            _echo_json(
+                configure_api_key_provider(
+                    provider or "openai",
+                    api_key=api_key,
+                    model=model,
+                    make_default=not no_default,
+                )
+            )
+            return
+        raise ValueError("method must be one of: oauth, api-key")
+    except Exception as exc:
+        _exit_error("model_login_failed", str(exc))
+
+
+@model_app.command("set")
+def model_set(spec: str) -> None:
+    try:
+        _echo_json(set_default_model(spec))
+    except Exception as exc:
+        _exit_error("model_set_failed", str(exc))
+
+
+@agent_app.command("status")
+def agent_status_command() -> None:
+    _echo_json(agent_status())
+
+
+@agent_app.command("set")
+def agent_set(name: str) -> None:
+    try:
+        _echo_json(set_default_agent(name))
+    except Exception as exc:
+        _exit_error("agent_set_failed", str(exc))
 
 
 def main() -> None:

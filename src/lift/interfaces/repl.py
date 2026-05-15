@@ -9,8 +9,10 @@ import typer
 
 from lift.data.load import load_csv
 from lift.data.schema import infer_schema, validate_rows
+from lift.interfaces.terminal import render_dashboard
 from lift.system.doctor import doctor_report
 from lift.system.paths import default_output_root
+from lift.system.setup import write_settings
 from lift.workflow.run import AnalyzeConfig, analyze
 from lift.workflow.simulate import refresh_report, report_run, simulate_run
 
@@ -22,14 +24,14 @@ HELP_TEXT = """Commands:
   /report <run-id> [--refresh]
   /outputs
   /doctor
+  /setup
   /help
   /exit
 """
 
 
 def run_repl() -> None:
-    typer.echo("Lift local incrementality agent")
-    typer.echo("Type /help for commands, /exit to quit.")
+    typer.echo(render_dashboard())
     while True:
         try:
             line = input("lift> ").strip()
@@ -56,6 +58,8 @@ def handle_repl_command(line: str) -> str | None:
         return HELP_TEXT
     if command == "/doctor":
         return _json(doctor_report())
+    if command == "/setup":
+        return _json(write_settings(overwrite=False))
     if command == "/outputs":
         options = _parse_options(rest)
         output_root = str(options.get("output_root", default_output_root()))

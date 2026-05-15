@@ -13,6 +13,7 @@
 - Cost Curve, AUCC, iRoI, CPiA가 정확하게 계산되는가
 - 예산/ROI 제약을 위반하지 않는 target list가 생성되는가
 - Feynman식 CLI/REPL UX가 같은 core engine을 사용하는가
+- Feynman식 model/agent 설정 명령이 안전한 상태를 보고하는가
 - Codex/Claude skills가 Lift CLI와 artifact를 올바르게 안내하는가
 
 ---
@@ -32,6 +33,8 @@
 - target export
 - report/provenance artifact
 - CLI, REPL, installer, skills smoke tests
+- terminal dashboard smoke tests
+- model and agent configuration tests
 
 ## 2.2 Out of scope for MVP
 
@@ -272,6 +275,24 @@ Pass criteria:
 
 - no NaN leaks into exported artifacts
 - score policy is documented in `models.json`
+
+## 5.6 Terminal runtime and auth surface
+
+Test cases:
+
+- `lift` with no command renders the dashboard and enters the REPL
+- `/help`, `/doctor`, `/outputs`, and `/setup` return deterministic output
+- `lift model list` reports API-key providers, OAuth providers, current model, and bridge status
+- `lift model login <provider> --method api-key` writes `auth.json` and default model settings
+- `lift model login <provider> --method oauth` returns `bridge_required` when no Pi-compatible auth bridge is configured
+- `lift agent status` detects Codex/Claude binaries without requiring them
+- `lift agent set codex` and `lift agent set claude` persist the default agent
+
+Pass criteria:
+
+- no MCP command is exposed
+- OAuth login never reports success without a real bridge
+- existing analysis, simulation, report, and quickstart tests continue to pass
 
 ---
 

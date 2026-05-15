@@ -182,7 +182,10 @@ Lift는 다음 결과를 자동 생성해야 한다.
 - customer-level target ranking
 - budget / ROI / target-ratio constraint
 - local CLI
-- local REPL
+- Feynman-style local terminal app launched by `lift`
+- local REPL with slash workflows
+- `lift model ...` model/auth configuration surface
+- `lift agent ...` Codex/Claude integration surface
 - one-line installer
 - Codex/Claude용 skills/prompts 설치 산출물
 - Markdown/JSON/CSV artifact
@@ -195,7 +198,27 @@ Lift는 다음 결과를 자동 생성해야 한다.
 - 자동 캠페인 집행
 - 외부 warehouse 직접 연결
 - MCP server interface
+- direct MCP-based agent runtime
 - 의료/금융/채용/정치 등 고위험 의사결정
+
+## 7.4 Feynman-style runtime expectations
+
+Lift should install and run like a standalone local app:
+
+```bash
+curl -fsSL <install-url> | bash
+lift
+```
+
+Running `lift` without arguments should show a terminal dashboard with runtime status, configured model, working directory, output location, available agent integrations, and Lift slash workflows.
+
+Model/account access is split into three modes:
+
+- OAuth provider login through a Pi-compatible auth bridge
+- API-key provider setup for OpenAI, Anthropic, Google, and compatible gateways
+- External CLI integration for already-authenticated Codex or Claude installations
+
+Lift must not claim OAuth credentials are available unless the OAuth bridge has completed a real provider login.
 
 ## 7.3 Post-MVP 후보
 

@@ -14,6 +14,9 @@ def write_settings(
     default_seed: int = 123,
     baseline_model: str = "ridge",
     nuisance_model: str = "ridge",
+    default_agent: str | None = None,
+    default_provider: str | None = None,
+    default_model: str | None = None,
     overwrite: bool = False,
 ) -> dict[str, Any]:
     path = settings_path()
@@ -30,6 +33,12 @@ def write_settings(
         "baseline_model": baseline_model,
         "nuisance_model": nuisance_model,
     }
+    if default_agent:
+        settings["default_agent"] = default_agent
+    if default_provider:
+        settings["default_provider"] = default_provider
+    if default_model:
+        settings["default_model"] = default_model
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
     paths = ensure_runtime_dirs()

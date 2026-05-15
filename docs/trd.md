@@ -55,24 +55,35 @@ Lift는 해당 repo에서 다음만 참고한다.
 
 1. **Interface Layer**
    - CLI
+   - terminal dashboard launched by `lift`
    - REPL slash command
    - setup/quickstart commands
+   - `model` command group
+   - `agent` command group
    - skills/prompts installer for Codex/Claude
 
-2. **Workflow Layer**
+2. **Runtime/Auth Layer**
+   - `~/.lift/settings.json`
+   - `~/.lift/auth.json`
+   - API-key provider configuration
+   - OAuth provider status through a Pi-compatible auth bridge
+   - external CLI detection for Codex and Claude
+   - doctor/status reporting
+
+3. **Workflow Layer**
    - run orchestration
    - step state
    - artifact registry
    - provenance logging
 
-3. **Data Layer**
+4. **Data Layer**
    - CSV/Parquet loading
    - schema mapping
    - data validation
    - train/validation/test split
    - cross-fitting split
 
-4. **Causal Trust Layer**
+5. **Causal Trust Layer**
    - randomized/observational 판단
    - propensity handling
    - overlap diagnostics
@@ -80,11 +91,11 @@ Lift는 해당 repo에서 다음만 참고한다.
    - leakage detection
    - trust rating
 
-5. **Model Layer**
+6. **Model Layer**
    - baseline estimators
    - Duality R-learner
 
-6. **Evaluation Layer**
+7. **Evaluation Layer**
    - campaign-level incrementality
    - cost curve
    - AUCC
@@ -92,11 +103,42 @@ Lift는 해당 repo에서 다음만 참고한다.
    - CPiA
    - budget frontier
 
-7. **Decision Layer**
+8. **Decision Layer**
    - budget-constrained targeting
    - ROI-constrained targeting
    - target export
    - report generation
+
+## 2.2 Feynman-style terminal runtime
+
+The installed `lift` command is the product entrypoint. When called without a subcommand it renders a terminal dashboard and then enters the local slash-command REPL. The dashboard must show:
+
+- configured model or recommended model
+- current directory
+- output root
+- latest session/run
+- Python/system summary
+- available Codex/Claude integrations
+- supported Lift workflows
+
+The REPL must call the same workflow functions as the CLI commands. It must not create a separate execution path for analysis.
+
+## 2.3 Model and agent configuration
+
+Lift exposes Feynman-like command groups:
+
+```bash
+lift model list
+lift model login <provider> --method oauth
+lift model login <provider> --method api-key
+lift model set <provider/model>
+lift agent status
+lift agent set <codex|claude>
+```
+
+OAuth is represented as a provider capability, but real browser login requires a Pi-compatible auth bridge. Until that bridge is available, `lift model login ... --method oauth` must return a structured `bridge_required` status rather than silently pretending login succeeded.
+
+API-key setup can write `~/.lift/auth.json` and default model settings. External CLI setup detects `codex` and `claude` binaries and tracks skill installation state.
 
 ---
 

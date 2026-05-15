@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from lift import __version__
+from lift.system.agents import agent_status
+from lift.system.models import model_status
 from lift.system.paths import ensure_runtime_dirs
 
 
@@ -39,6 +41,8 @@ def doctor_report() -> dict[str, Any]:
         "path_errors": path_errors,
         "checks": checks,
         "dependencies": dependencies,
+        "agents": agent_status(),
+        "models": model_status(),
         "fractional_uplift_runtime_dependency": False,
     }
 

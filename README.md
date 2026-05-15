@@ -14,6 +14,8 @@ Current implementation scope:
 - Local artifacts under `outputs/<run-id>/`
 - CLI simulation and target re-export from saved artifacts
 - YAML/JSON config files for schema, model, budget, and ROI settings
+- Feynman-style terminal dashboard when running `lift` with no command
+- `lift model ...` and `lift agent ...` configuration surfaces for model/auth and Codex/Claude integration
 
 `references/fractional_uplift` is reference-only and is not a runtime dependency.
 
@@ -96,13 +98,27 @@ Run a packaged example end-to-end:
 Run `lift` with no command to open the local REPL:
 
 ```text
+Lift dashboard...
 lift> /inspect fixtures/randomized_coupon.csv
 lift> /analyze fixtures/randomized_coupon.csv --budget 5 --min-roi 0.1
 lift> /outputs
 lift> /exit
 ```
 
-Lift is designed as a standalone local CLI/runtime. Codex and Claude integration should use Lift skills and prompts, not an MCP server.
+Lift is designed as a standalone local CLI/runtime. Codex and Claude integration uses Lift skills, prompts, and agent/model configuration commands, not an MCP server.
+
+Model and agent configuration:
+
+```bash
+lift model list
+lift model login openai --method api-key --api-key "$OPENAI_API_KEY" --model gpt-5.4
+lift model login openai-codex --method oauth
+lift model set openai/gpt-5.4
+lift agent status
+lift agent set codex
+```
+
+OAuth login follows the Feynman/Pi structure, but requires a Pi-compatible auth bridge. Until that bridge is installed, `lift model login <provider> --method oauth` reports `bridge_required` instead of storing unusable credentials.
 
 Install Lift guidance into Codex or a repo-local agent directory:
 
