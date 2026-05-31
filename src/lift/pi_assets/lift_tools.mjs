@@ -182,6 +182,38 @@ export default function (pi) {
     },
   });
 
+  pi.registerTool({
+    name: "lift_compare_models",
+    label: "Lift Compare Models",
+    description: "Compare model evaluation metrics (AUUC, AUCC, Qini, gain-at-budget) across all models for a completed Lift run. Use this to answer which model performs best.",
+    parameters: objectSchema({
+      run_id: stringParam("Lift run id returned by lift_analyze_campaign or listed by lift_outputs."),
+      output_root: stringParam("Optional output directory. Defaults to ~/.lift/outputs."),
+    }, ["run_id"]),
+    async execute(_toolCallId, params) {
+      const args = ["compare-models", params.run_id];
+      addOptional(args, "--output-root", params.output_root);
+      const result = await runLift(args);
+      return content(jsonOrText(result));
+    },
+  });
+
+  pi.registerTool({
+    name: "lift_budget_frontier",
+    label: "Lift Budget Frontier",
+    description: "Return the budget-gain frontier curve for a completed Lift run. Shows how incremental gain changes as budget increases. Use this to answer 'how much gain do we get at budget X?' or 'what budget do we need for Y gain?'",
+    parameters: objectSchema({
+      run_id: stringParam("Lift run id returned by lift_analyze_campaign or listed by lift_outputs."),
+      output_root: stringParam("Optional output directory. Defaults to ~/.lift/outputs."),
+    }, ["run_id"]),
+    async execute(_toolCallId, params) {
+      const args = ["budget-frontier", params.run_id];
+      addOptional(args, "--output-root", params.output_root);
+      const result = await runLift(args);
+      return content(jsonOrText(result));
+    },
+  });
+
   pi.registerCommand("lift-help", {
     description: "Show Lift analysis capabilities and required dataset columns.",
     handler: async (_args, ctx) => {

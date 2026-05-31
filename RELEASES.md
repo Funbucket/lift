@@ -1,5 +1,15 @@
 # Release Notes
 
+## 0.1.8
+
+- Fix AUCC metric: was incorrectly identical to AUUC; now uses incremental cost as the x-axis (gain-vs-cost curve).
+- Export anti-targets (do-not-target segment): `anti-targets.csv` written by `lift analyze` and `lift simulate`. Customers with non-positive predicted uplift score or gain.
+- Add `lift doctor` Pi runtime checks: node availability, pi_cli, pi extension, and OAuth bridge now reported in `checks` and `pi_runtime` fields.
+- Add `lift compare-models <run-id>` command: returns per-model AUUC, AUCC, Qini, and gain-at-budget/ROI leaderboard as JSON.
+- Add `lift budget-frontier <run-id>` command: returns the budget-gain frontier curve rows as JSON.
+- Add `lift_compare_models` and `lift_budget_frontier` Pi shell tools backed by the new commands.
+- Improve `lift quickstart` output: includes `report_path` and `next_steps` hints.
+
 ## 0.1.4
 
 - Replace hand-rolled setup selection with a Feynman-style `@clack/prompts` Node setup helper.

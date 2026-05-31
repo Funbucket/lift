@@ -27,7 +27,7 @@ from lift.system.pi import launch_pi_chat, pi_runtime_status
 from lift.system.setup import is_interactive_terminal, run_interactive_setup, write_settings
 from lift.system.skills import install_skill
 from lift.workflow.run import AnalyzeConfig, analyze
-from lift.workflow.simulate import refresh_report, report_run, simulate_run
+from lift.workflow.simulate import budget_frontier_run, compare_models_run, refresh_report, report_run, simulate_run
 from lift.interfaces.repl import run_repl
 
 
@@ -43,6 +43,8 @@ app.add_typer(agent_app, name="agent")
 _TOP_LEVEL_COMMANDS = {
     "agent",
     "analyze",
+    "budget-frontier",
+    "compare-models",
     "doctor",
     "export-targets",
     "install-skills",
@@ -196,6 +198,22 @@ def report(run_id: str, output_root: str = default_output_root(), refresh: bool 
         typer.echo(report_run(run_id, output_root=output_root))
 
 
+@app.command("compare-models")
+def compare_models(run_id: str, output_root: str = default_output_root()) -> None:
+    try:
+        _echo_json(compare_models_run(run_id, output_root=output_root))
+    except Exception as exc:
+        _exit_error("compare_models_failed", str(exc))
+
+
+@app.command("budget-frontier")
+def budget_frontier(run_id: str, output_root: str = default_output_root()) -> None:
+    try:
+        _echo_json(budget_frontier_run(run_id, output_root=output_root))
+    except Exception as exc:
+        _exit_error("budget_frontier_failed", str(exc))
+
+
 @app.command("outputs")
 def outputs(output_root: str = default_output_root()) -> None:
     root = Path(output_root)
@@ -277,7 +295,16 @@ def quickstart(
                     min_roi=min_roi,
                 ),
             )
-        _echo_json({"dataset": "builtin:randomized_coupon", **result})
+        _echo_json({
+            "dataset": "builtin:randomized_coupon",
+            **result,
+            "report_path": str(Path(result["run_dir"]) / "report.md"),
+            "next_steps": [
+                f"lift report {result['run_id']}",
+                f"lift compare-models {result['run_id']}",
+                f"lift simulate {result['run_id']} --budget <n>",
+            ],
+        })
     except Exception as exc:
         _exit_error("quickstart_failed", str(exc))
 

@@ -8,8 +8,9 @@ from typing import Any
 
 from lift import __version__
 from lift.system.agents import agent_status
-from lift.system.models import model_status
+from lift.system.models import model_status, oauth_bridge_report
 from lift.system.paths import ensure_runtime_dirs
+from lift.system.pi import pi_runtime_status
 
 
 REQUIRED_PACKAGES = ("numpy", "pandas", "sklearn", "typer", "yaml")
@@ -21,14 +22,25 @@ def doctor_report() -> dict[str, Any]:
         package: _dependency_status(package)
         for package in REQUIRED_PACKAGES
     }
+    pi_runtime = pi_runtime_status()
+    bridge = oauth_bridge_report()
     path_errors = list(paths.get("errors", []))
     checks = {
         "python_supported": sys.version_info >= (3, 10),
         "lift_command_on_path": shutil.which("lift") is not None,
         "runtime_dirs_created": not path_errors,
         "outputs_writable": _is_writable(Path(str(paths["outputs"]))),
+        "node_available": bool(pi_runtime.get("node")),
+        "pi_cli_installed": Path(str(pi_runtime["pi_cli"])).exists(),
+        "pi_extension_available": Path(str(pi_runtime["extension"])).exists(),
+        "oauth_bridge_installed": bridge.get("available", False),
     }
-    status = "ok" if all(checks.values()) and all(item["available"] for item in dependencies.values()) else "warning"
+    python_ok = all(item["available"] for item in dependencies.values())
+    core_ok = all(checks[key] for key in (
+        "python_supported", "lift_command_on_path", "runtime_dirs_created", "outputs_writable"
+    ))
+    pi_ok = checks["node_available"] and checks["pi_cli_installed"] and checks["pi_extension_available"]
+    status = "ok" if (python_ok and core_ok and pi_ok) else "warning"
     return {
         "status": status,
         "lift_version": __version__,
@@ -41,6 +53,12 @@ def doctor_report() -> dict[str, Any]:
         "path_errors": path_errors,
         "checks": checks,
         "dependencies": dependencies,
+        "pi_runtime": pi_runtime,
+        "oauth_bridge": {
+            "available": bridge.get("available", False),
+            "source": bridge.get("source"),
+            "install_dir": bridge.get("install_dir"),
+        },
         "agents": agent_status(),
         "models": model_status(),
         "fractional_uplift_runtime_dependency": False,

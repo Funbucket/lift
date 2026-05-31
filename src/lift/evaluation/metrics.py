@@ -42,10 +42,14 @@ def evaluate_ranking(rows: list[dict[str, Any]], schema: Schema, scores: list[fl
                 "cpia": _safe_divide(inc_cost, inc_gain),
             }
         )
+    # AUUC: area under incremental_gain vs target_share curve
     auuc = _area_under_curve(curve, "target_share", "incremental_gain")
+    # AUCC: area under incremental_gain vs incremental_cost curve
+    # Uses non-negative cost values to keep curve monotonic
+    aucc = _area_under_cost_curve(curve)
     qini = _qini_area(curve)
     return {
-        "aucc": auuc,
+        "aucc": aucc,
         "auuc": auuc,
         "qini": qini,
         "max_incremental_gain": max((point["incremental_gain"] for point in curve), default=0.0),
@@ -176,6 +180,50 @@ def select_targets(
     return selected
 
 
+def select_anti_targets(
+    rows: list[dict[str, Any]],
+    schema: Schema,
+    scores: list[float],
+    expected_gain: list[float],
+    expected_cost: list[float],
+    *,
+    trust_level: str,
+) -> list[dict[str, Any]]:
+    """Return customers with negative uplift (do-not-target segment).
+
+    A customer is an anti-target when their model score is <= 0 or their
+    expected incremental gain is <= 0, meaning treatment is expected to have
+    no positive effect or to cause harm relative to control.
+    """
+    ordered = sorted(
+        zip(rows, scores, expected_gain, expected_cost),
+        key=lambda item: item[1],
+        reverse=False,  # worst first
+    )
+    anti: list[dict[str, Any]] = []
+    for row, score, gain, cost in ordered:
+        safe_cost = max(float(cost), 0.0)
+        profit = float(gain) - safe_cost
+        if score > 0.0 and gain > 0.0:
+            continue
+        reason = "negative_score" if score <= 0.0 else "negative_gain"
+        anti.append(
+            {
+                "unit_id": row[schema.unit_id],
+                "rank": len(anti) + 1,
+                "score": score,
+                "recommended_treatment": 0,
+                "expected_incremental_gain": gain,
+                "expected_incremental_cost": safe_cost,
+                "expected_incremental_profit": profit,
+                "expected_incremental_roi": _safe_divide(gain, safe_cost) if safe_cost > 0 else 0.0,
+                "selection_reason": reason,
+                "trust_level": trust_level,
+            }
+        )
+    return anti
+
+
 def _incremental_mean(rows: list[dict[str, Any]], schema: Schema, column: str) -> float:
     treated_num = treated_den = control_num = control_den = 0.0
     for row in rows:
@@ -207,6 +255,26 @@ def _area_under_curve(curve: list[dict[str, float]], x_key: str, y_key: str) -> 
         previous_x = x_value
         previous_y = y_value
     return area
+
+
+def _area_under_cost_curve(curve: list[dict[str, float]]) -> float:
+    """Area under incremental_gain vs incremental_cost curve (AUCC).
+
+    Unlike AUUC which uses target_share on the x-axis, AUCC measures how much
+    incremental gain is captured per unit of incremental cost spent.  The x-axis
+    is incremental_cost (clipped to >= 0) and the y-axis is incremental_gain.
+    """
+    if not curve:
+        return 0.0
+    # Build a sub-curve where cost is non-negative and monotonically increasing
+    cost_curve: list[dict[str, float]] = []
+    prev_cost = 0.0
+    for point in curve:
+        cost = max(point["incremental_cost"], 0.0)
+        if cost >= prev_cost:
+            cost_curve.append({"cost": cost, "gain": point["incremental_gain"]})
+            prev_cost = cost
+    return _area_under_curve(cost_curve, "cost", "gain")
 
 
 def _qini_area(curve: list[dict[str, float]]) -> float:

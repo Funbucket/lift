@@ -31,6 +31,8 @@ TARGET_FIELDS = [
     "trust_level",
 ]
 
+ANTI_TARGET_FIELDS = TARGET_FIELDS
+
 
 def simulate_run(
     run_id: str,
@@ -44,15 +46,18 @@ def simulate_run(
     run_dir = store.require_run_dir(run_id)
     scores = [_coerce_score_row(row) for row in load_csv(run_dir / "policy-scores.csv")]
     trust = read_json(run_dir / "trust.json")
+    trust_level = str(trust.get("trust_level", "unknown"))
     targets = select_policy_scores(
         scores,
         budget=budget,
         min_roi=min_roi,
-        trust_level=str(trust.get("trust_level", "unknown")),
+        trust_level=trust_level,
     )
-    summary = _summary(run_id, targets, budget, min_roi)
+    anti_targets = anti_select_policy_scores(scores, trust_level=trust_level)
+    summary = _summary(run_id, targets, anti_targets, budget, min_roi)
     if write_artifacts:
         write_csv(run_dir / "targets.csv", targets, TARGET_FIELDS)
+        write_csv(run_dir / "anti-targets.csv", anti_targets, ANTI_TARGET_FIELDS)
         store.write_json(run_id, "simulation.json", summary)
     return summary
 
@@ -97,6 +102,57 @@ def select_policy_scores(
             }
         )
     return selected
+
+
+def anti_select_policy_scores(
+    scores: list[dict[str, Any]],
+    *,
+    trust_level: str,
+) -> list[dict[str, Any]]:
+    """Return customers with non-positive score or gain (do-not-target segment)."""
+    ordered = sorted(scores, key=lambda row: float(row["score"]))
+    anti: list[dict[str, Any]] = []
+    for row in ordered:
+        score = float(row["score"])
+        gain = float(row["expected_incremental_gain"])
+        cost = max(float(row["expected_incremental_cost"]), 0.0)
+        if score > 0.0 and gain > 0.0:
+            continue
+        reason = "negative_score" if score <= 0.0 else "negative_gain"
+        anti.append(
+            {
+                "unit_id": row["unit_id"],
+                "rank": len(anti) + 1,
+                "score": score,
+                "recommended_treatment": 0,
+                "expected_incremental_gain": gain,
+                "expected_incremental_cost": cost,
+                "expected_incremental_profit": gain - cost,
+                "expected_incremental_roi": _safe_divide(gain, cost) if cost > 0 else 0.0,
+                "selection_reason": reason,
+                "trust_level": trust_level,
+            }
+        )
+    return anti
+
+
+def compare_models_run(run_id: str, *, output_root: str | Path = "outputs") -> dict[str, Any]:
+    """Return per-model evaluation metrics and leaderboard for a completed run."""
+    store = ArtifactStore(output_root)
+    run_dir = store.require_run_dir(run_id)
+    evaluation = _evaluation_for_simulation(run_dir)
+    return {"run_id": run_id, **evaluation}
+
+
+def budget_frontier_run(run_id: str, *, output_root: str | Path = "outputs") -> dict[str, Any]:
+    """Return budget-frontier curve rows for a completed run."""
+    store = ArtifactStore(output_root)
+    run_dir = store.require_run_dir(run_id)
+    frontier_path = run_dir / "budget-frontier.csv"
+    if not frontier_path.exists():
+        return {"run_id": run_id, "frontier": [], "error": "budget-frontier.csv not found"}
+    rows = [{key: _try_float(value) for key, value in row.items()} for row in load_csv(frontier_path)]
+    return {"run_id": run_id, "frontier": rows}
 
 
 def report_run(run_id: str, *, output_root: str | Path = "outputs") -> str:
@@ -188,6 +244,7 @@ def _coerce_score_row(row: dict[str, Any]) -> dict[str, Any]:
 def _summary(
     run_id: str,
     targets: list[dict[str, Any]],
+    anti_targets: list[dict[str, Any]],
     budget: float | None,
     min_roi: float | None,
 ) -> dict[str, Any]:
@@ -206,11 +263,19 @@ def _summary(
         "min_roi": min_roi,
         "constraint_status": "satisfied" if feasible else "failed",
         "target_count": len(targets),
+        "anti_target_count": len(anti_targets),
         "expected_incremental_gain": expected_gain,
         "expected_incremental_cost": expected_cost,
         "expected_incremental_profit": expected_profit,
         "expected_incremental_roi": expected_roi,
     }
+
+
+def _try_float(value: Any) -> Any:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return value
 
 
 def _safe_divide(numerator: float, denominator: float) -> float:

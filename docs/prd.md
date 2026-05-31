@@ -201,6 +201,17 @@ Lift는 다음 결과를 자동 생성해야 한다.
 - direct MCP-based agent runtime
 - 의료/금융/채용/정치 등 고위험 의사결정
 
+## 7.6 MVP 현재 미구현 항목 (Known Gaps, v0.1.7 기준)
+
+아래 항목은 PRD에서 요구하지만 현재 코드에 구현되지 않았다.
+
+- **Anti-target export**: negative uplift 고객군(쿠폰이 손해인 대상)은 `targets.csv`에서 조용히 제외된다. "쿠폰이 손해인 고객군" 리스트가 없다.
+- **AUCC (Area Under Cost Curve)**: 현재 코드는 AUCC와 AUUC를 같은 값(incremental_gain vs target_share)으로 계산한다. 올바른 AUCC는 incremental_gain vs incremental_cost 곡선의 면적이어야 한다.
+- **/compare-models tool**: Pi 자연어 shell과 legacy REPL 모두에 `compare-models` slash command가 없다.
+- **`lift doctor` Pi runtime 체크**: `lift doctor`가 node, Pi CLI, OAuth bridge 설치 여부를 체크하지 않는다. 설치 이상이 있어도 "ok"를 반환할 수 있다.
+- **`lift status` 상세화**: 현재 `{"status": "ready"}` 만 반환. PRD 기준 model/directory/session/agents 요약이 필요하다.
+- **Optional packages multiselect 동작**: setup 완료 후 memory/generative-ui 선택지가 표시되지만 실제 선택·설치로 이어지지 않는다.
+
 ## 7.4 Feynman-style runtime expectations
 
 Lift should install and run like a standalone local app:
@@ -426,16 +437,56 @@ outcome_window_end
 
 Lift는 아래 질문에 직접 답할 수 있어야 한다.
 
-1. “이 캠페인의 incremental ROI는 얼마야?”
-2. “예산 1억이면 누구에게 쿠폰을 보내야 해?”
-3. “iRoI 2.0을 유지하면서 incremental conversion을 최대화해줘.”
-4. “단순 uplift 모델과 cost-aware 모델의 추천 대상은 얼마나 달라?”
-5. “쿠폰이 손해인 고객군은 누구야?”
-6. “이 데이터로 인과추론 결과를 믿어도 돼?”
-7. “관찰 데이터인데 overlap 문제는 없어?”
-8. “예산을 늘리면 incremental value가 얼마나 늘어나?”
-9. “모델별 cost curve와 AUCC를 비교해줘.”
-10. “추천 대상자 CSV와 리포트를 만들어줘.”
+각 질문별 구현 상태 (v0.1.7 기준):
+
+| # | 질문 | 상태 | 필요 컬럼 | 호출 tool/command | 비고 |
+|---|------|------|-----------|-------------------|------|
+| 1 | “이 캠페인의 incremental ROI는 얼마야?” | ✅ 가능 | unit_id, treatment, treatment_propensity, maximize_kpi, constraint_kpi, feature_* | lift_analyze_campaign | campaign_incrementality.json에 iROI 포함 |
+| 2 | “예산 1억이면 누구에게 쿠폰을 보내야 해?” | ✅ 가능 | 위와 동일 | analyze(budget=100000000) → lift_export_targets | greedy selection 근사 |
+| 3 | “iRoI 2.0을 유지하면서 incremental conversion을 최대화해줘.” | ⚠️ 부분 | 동일 | analyze(min_roi=2.0) | greedy 근사. 전역 최적이 아닐 수 있음. 문서에 명시 필요 |
+| 4 | “단순 uplift 모델과 cost-aware 모델의 추천 대상은 얼마나 달라?” | ⚠️ 부분 | 동일 | analyze → evaluation.json/curves.csv 수동 비교 | compare-models tool 미구현. LLM이 수동 해석 |
+| 5 | “쿠폰이 손해인 고객군은 누구야?” | ❌ 미지원 | 동일 | 없음 | **anti-target export 기능 미구현.** targets.csv에 negative uplift 제외됨 |
+| 6 | “이 데이터로 인과추론 결과를 믿어도 돼?” | ✅ 가능 | 동일 | analyze → trust.json | trust_level + warnings 포함 |
+| 7 | “관찰 데이터인데 overlap 문제는 없어?” | ✅ 가능 | 동일 | analyze --estimate-propensity | overlap_status + propensity 분포 포함 |
+| 8 | “예산을 늘리면 incremental value가 얼마나 늘어나?” | ⚠️ 부분 | 동일 | analyze → budget-frontier.csv | LLM이 CSV를 해석해야 함. 전용 tool 없음 |
+| 9 | “모델별 cost curve와 AUCC를 비교해줘.” | ⚠️ 부분 | 동일 | analyze → curves.csv | **AUCC=AUUC 버그 있음.** curves.csv 직접 읽는 Pi tool 없음 |
+| 10 | “추천 대상자 CSV와 리포트를 만들어줘.” | ✅ 가능 | 동일 | analyze → targets.csv + report.md | 산출물 경로 포함 |
+
+### 12.1 핵심 질문 답변에 필요한 최소 dataset 컬럼
+
+```
+unit_id          # 고객 식별자
+treatment        # 0(control) / 1(treated)
+treatment_propensity  # 실험: 고정값(예: 0.5). 관찰: 추정값 또는 --estimate-propensity
+maximize_kpi     # 최대화 목표 (예: conversion, revenue)
+constraint_kpi   # 비용 제약 (예: coupon_cost)
+feature_1 ... feature_n  # 모델 학습용 사전 처리 feature
+```
+
+선택:
+```
+constraint_offset_kpi   # ROI 계산용 offset (예: spend)
+constraint_offset_scale # target iROI
+sample_weight           # IPW 등 가중치
+```
+
+### 12.2 Expected outputs per question
+
+- **1, 6, 7**: `campaign_incrementality.json`, `trust.json`, `report.md`
+- **2, 3**: `targets.csv` (budget/roi 제약 적용), `simulation.json`
+- **4**: `evaluation.json`, `curves.csv` (모든 모델 포함)
+- **5**: **미구현** — anti-target 리스트 필요
+- **8**: `budget-frontier.csv`
+- **9**: `curves.csv` + `evaluation.json` leaderboard
+- **10**: `targets.csv` + `report.md`
+
+### 12.3 질문 5 구현 계획 (anti-target export)
+
+“쿠폰이 손해인 고객군”은 다음 조건의 고객이다:
+- `tau_gain(x) < 0` (treatment가 KPI를 낮춤)
+- 또는 `expected_incremental_profit < 0` (비용이 gain을 초과)
+
+이 고객군은 별도 `anti-targets.csv`로 export하거나, `targets.csv`에 `recommended_treatment=0`으로 포함해야 한다.
 
 ---
 

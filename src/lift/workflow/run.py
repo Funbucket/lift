@@ -15,6 +15,7 @@ from lift.evaluation.metrics import (
     campaign_incrementality,
     evaluate_ranking,
     model_policy_metrics,
+    select_anti_targets,
     select_targets,
 )
 from lift.models.baselines import ModelResult, train_baselines
@@ -24,7 +25,7 @@ from lift.trust.diagnostics import diagnose
 from lift.trust.propensity import apply_propensity_estimates, estimate_propensity
 from lift.workflow.artifacts import ArtifactStore
 from lift.workflow.report import render_report
-from lift.workflow.simulate import POLICY_SCORE_FIELDS, TARGET_FIELDS
+from lift.workflow.simulate import ANTI_TARGET_FIELDS, POLICY_SCORE_FIELDS, TARGET_FIELDS
 
 
 @dataclass
@@ -127,6 +128,14 @@ def analyze(dataset_path: str | Path, config: AnalyzeConfig) -> dict[str, Any]:
         min_roi=config.min_roi,
         trust_level=trust["trust_level"],
     )
+    anti_targets = select_anti_targets(
+        rows,
+        schema,
+        primary.scores,
+        primary.expected_incremental_gain,
+        primary.expected_incremental_cost,
+        trust_level=trust["trust_level"],
+    )
 
     run_id = _run_id(Path(dataset_path), config.seed)
     store = ArtifactStore(config.output_root)
@@ -154,7 +163,8 @@ def analyze(dataset_path: str | Path, config: AnalyzeConfig) -> dict[str, Any]:
     write_csv(store.run_dir(run_id) / "budget-frontier.csv", frontier, list(frontier[0].keys()) if frontier else [])
     write_csv(store.run_dir(run_id) / "policy-scores.csv", policy_scores, POLICY_SCORE_FIELDS)
     write_csv(store.run_dir(run_id) / "targets.csv", targets, TARGET_FIELDS)
-    simulation_payload = _simulation_payload(run_id, targets, config.budget, config.min_roi)
+    write_csv(store.run_dir(run_id) / "anti-targets.csv", anti_targets, ANTI_TARGET_FIELDS)
+    simulation_payload = _simulation_payload(run_id, targets, anti_targets, config.budget, config.min_roi)
     store.write_json(run_id, "simulation.json", simulation_payload)
     store.write_markdown(
         run_id,
@@ -213,6 +223,7 @@ def _evaluation_payload(
             {
                 "model": name,
                 "auuc": result.get("auuc", 0.0),
+                "aucc": result.get("aucc", 0.0),
                 "qini": result.get("qini", 0.0),
                 "gain_at_budget": result.get("gain_at_budget"),
                 "gain_at_min_roi": result.get("gain_at_min_roi"),
@@ -292,6 +303,7 @@ def _artifact_names() -> tuple[str, ...]:
         "budget-frontier.csv",
         "policy-scores.csv",
         "targets.csv",
+        "anti-targets.csv",
         "simulation.json",
         "report.md",
         "provenance.md",
@@ -301,6 +313,7 @@ def _artifact_names() -> tuple[str, ...]:
 def _simulation_payload(
     run_id: str,
     targets: list[dict[str, Any]],
+    anti_targets: list[dict[str, Any]],
     budget: float | None,
     min_roi: float | None,
 ) -> dict[str, Any]:
@@ -318,6 +331,7 @@ def _simulation_payload(
         "min_roi": min_roi,
         "constraint_status": "satisfied" if feasible else "failed",
         "target_count": len(targets),
+        "anti_target_count": len(anti_targets),
         "expected_incremental_gain": expected_gain,
         "expected_incremental_cost": expected_cost,
         "expected_incremental_profit": expected_gain - expected_cost,

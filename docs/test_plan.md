@@ -296,6 +296,7 @@ Test cases:
 - OAuth bridge failures return structured `bridge_failed` or bridge-provided error payloads
 - `lift agent status` detects Codex/Claude binaries without requiring them
 - `lift agent set codex` and `lift agent set claude` persist the default agent
+- **Second `lift` run after setup completes does NOT repeat model setup prompt**
 
 Pass criteria:
 
@@ -303,6 +304,192 @@ Pass criteria:
 - OAuth login never reports success without a real bridge
 - bridge stdout must be valid JSON on success
 - existing analysis, simulation, report, and quickstart tests continue to pass
+
+## 5.7 Doctor runtime coverage
+
+Test cases:
+
+- `lift doctor` output includes `node` availability (true/false)
+- `lift doctor` output includes Pi CLI path and availability
+- `lift doctor` output includes OAuth bridge path and availability
+- `lift doctor` status is `warning` when Pi CLI is not installed
+
+Pass criteria:
+
+- A user can determine from `lift doctor` whether the natural-language shell will work
+- `status: ok` only when Python deps, node, Pi CLI, and OAuth bridge are all present
+
+---
+
+# 5.8 핵심 사용자 질문 시나리오 테스트
+
+이 섹션은 PRD 12절의 핵심 사용자 질문 10개가 Lift를 통해 답변 가능한지 검증한다. Pi 자연어 shell이 없는 환경에서는 동등한 CLI 명령 시퀀스로 대체한다.
+
+## Q1: "이 캠페인의 incremental ROI는 얼마야?"
+
+Setup:
+
+```
+dataset: fixtures/randomized_coupon.csv
+```
+
+Test:
+
+```bash
+lift analyze fixtures/randomized_coupon.csv --seed 123
+# → campaign_incrementality.json의 incremental_roi 확인
+```
+
+Pass criteria:
+
+- `campaign_incrementality.json` 존재하며 `incremental_roi` 필드가 유한한 숫자
+- `report.md`의 "Campaign Incrementality" 섹션에 값이 포함됨
+- `trust_level` 이 `high` (randomized fixture)
+
+## Q2: "예산 1억이면 누구에게 쿠폰을 보내야 해?"
+
+Test:
+
+```bash
+lift analyze fixtures/randomized_coupon.csv --budget 100000000 --seed 123
+# 또는 별도 simulate:
+lift simulate <run-id> --budget 100000000
+```
+
+Pass criteria:
+
+- `targets.csv`의 `expected_incremental_cost` 합계 ≤ 100000000
+- `simulation.json`의 `constraint_status = satisfied` 또는 infeasible 명시
+- `targets.csv`에 `unit_id`, `rank`, `score`, `recommended_treatment=1` 포함
+
+## Q3: "iRoI 2.0을 유지하면서 incremental conversion을 최대화해줘."
+
+Test:
+
+```bash
+lift simulate <run-id> --min-roi 2.0
+```
+
+Pass criteria:
+
+- `simulation.json`의 `expected_incremental_roi ≥ 2.0` when feasible
+- infeasible인 경우 `constraint_status = failed` 및 이유 포함
+- `targets.csv`의 greedy 결과가 min_roi 제약을 위반하지 않음
+
+**Note:** 현재 구현은 greedy 근사. 전역 최적이 아닐 수 있음. 이 한계가 report.md에 반영되어야 한다.
+
+## Q4: "단순 uplift 모델과 cost-aware 모델의 추천 대상은 얼마나 달라?"
+
+Test:
+
+```bash
+lift analyze fixtures/randomized_coupon.csv --seed 123
+# evaluation.json의 leaderboard 및 curves.csv에서 모델별 auuc/qini 비교
+```
+
+Pass criteria:
+
+- `evaluation.json`의 `leaderboard`에 최소 4개 모델 포함 (baselines + duality_r_learner)
+- `curves.csv`에 `model` 컬럼으로 각 모델의 커브가 구분됨
+- `duality_r_learner`와 `response_model` 간 AUUC 차이가 데이터에 따라 유의미
+
+**Gap:** `/compare-models` tool 없음. 자연어 질문 시 LLM이 evaluation.json을 직접 읽어야 함.
+
+## Q5: "쿠폰이 손해인 고객군은 누구야?"
+
+Test:
+
+```bash
+lift analyze fixtures/randomized_coupon.csv --seed 123
+# policy-scores.csv에서 expected_incremental_profit < 0 인 unit_id 확인
+```
+
+Pass criteria:
+
+- `policy-scores.csv`에 모든 고객의 `expected_incremental_gain`, `expected_incremental_cost`, `expected_incremental_profit` 포함
+- `expected_incremental_profit < 0` 인 고객 리스트를 도출 가능
+
+**Gap (v0.1.7):** `targets.csv`에는 이 고객들이 포함되지 않음. anti-target export 기능 미구현. 자연어 질문에 자동으로 답하려면 Pi tool이 `policy-scores.csv`를 읽고 필터링해야 함.
+
+## Q6: "이 데이터로 인과추론 결과를 믿어도 돼?"
+
+Test:
+
+```bash
+lift analyze fixtures/randomized_coupon.csv --seed 123  # trust_level: high
+lift analyze fixtures/observational_coupon.csv --estimate-propensity --seed 123  # trust_level: medium/low
+lift analyze fixtures/low_overlap_coupon.csv --seed 123  # trust_level: low/blocked
+```
+
+Pass criteria:
+
+- `trust.json`의 `trust_level` 이 randomized=high, observational=medium/low, low_overlap=low/blocked
+- `warnings`에 hidden confounding 경고 포함 (observational)
+- `report.md`의 Trust 섹션에 overlap_status, 경고 반영
+
+## Q7: "관찰 데이터인데 overlap 문제는 없어?"
+
+Test:
+
+```bash
+lift analyze fixtures/low_overlap_coupon.csv --estimate-propensity --seed 123
+```
+
+Pass criteria:
+
+- `trust.json`의 `overlap_status = poor`
+- `low_overlap_count`, `low_overlap_rate` 포함
+- `propensity_percentiles` (p01, p05, p95, p99) 포함
+- `trust_level = low 또는 blocked`
+
+## Q8: "예산을 늘리면 incremental value가 얼마나 늘어나?"
+
+Test:
+
+```bash
+lift analyze fixtures/randomized_coupon.csv --seed 123
+# budget-frontier.csv에서 cumulative_expected_gain vs cumulative_expected_cost 확인
+```
+
+Pass criteria:
+
+- `budget-frontier.csv` 존재하며 `rank`, `unit_id`, `cumulative_expected_gain`, `cumulative_expected_cost`, `cumulative_expected_roi` 포함
+- LLM이 budget-frontier.csv를 읽어 예산별 incremental gain 답변 가능
+
+**Gap:** Pi tool에 budget-frontier.csv를 직접 읽는 tool 없음. LLM이 report tool을 통해 간접 해석.
+
+## Q9: "모델별 cost curve와 AUCC를 비교해줘."
+
+Test:
+
+```bash
+lift analyze fixtures/randomized_coupon.csv --seed 123
+# evaluation.json leaderboard에서 auuc/qini 비교
+# curves.csv에서 모델별 커브 비교
+```
+
+Pass criteria:
+
+- `curves.csv`에 모든 모델의 `incremental_gain`, `incremental_cost`, `incremental_roi`, `cpia` by `target_share` 포함
+- `evaluation.json`의 leaderboard에 AUUC, Qini, gain_at_budget 포함
+- 모델 간 성능 차이가 수치로 확인 가능
+
+**Bug (v0.1.7):** `aucc`와 `auuc`가 동일한 값으로 설정됨. AUCC 수정 전까지 report에서 AUCC 항목을 AUUC(Area Under Uplift Curve)로 레이블해야 한다.
+
+## Q10: "추천 대상자 CSV와 리포트를 만들어줘."
+
+Test:
+
+```bash
+lift analyze fixtures/randomized_coupon.csv --budget 100000000 --seed 123
+# targets.csv + report.md 생성 확인
+```
+
+Pass criteria:
+
+- `targets.csv` 존재하며 TRD 8.2 스키마 충족
+- `report.md` 존재하며 Summary, Campaign Incrementality, Budget Simulation, Trust, Model Leaderboard, Limitations 섹션 포함
+- 두 파일 경로가 CLI 출력 또는 report.md 내에 명시됨
 
 ---
 
@@ -369,8 +556,8 @@ Pass criteria:
 
 Command:
 
-```
-lift analyze randomized_binary_coupon.csv --seed 123
+```bash
+lift analyze fixtures/randomized_coupon.csv --seed 123
 ```
 
 Expected artifacts:
@@ -378,12 +565,16 @@ Expected artifacts:
 ```
 run.json
 schema.json
+propensity.json
 trust.json
 campaign_incrementality.json
 models.json
 evaluation.json
+curves.csv
 budget-frontier.csv
+policy-scores.csv
 targets.csv
+simulation.json
 report.md
 provenance.md
 ```
@@ -426,16 +617,57 @@ Pass criteria:
 
 Commands:
 
-```
-lift analyze data.csv
-lift
-> /analyze data.csv
+```bash
+lift analyze fixtures/randomized_coupon.csv --seed 123
+# then in legacy REPL:
+lift repl
+> /analyze fixtures/randomized_coupon.csv --seed 123
 ```
 
 Pass criteria:
 
 - both invoke the same core workflow
 - artifact structure is identical except run id/time
+
+## INT-006: Install flow end-to-end
+
+```bash
+rm -rf ~/.lift ~/.local/bin/lift
+LIFT_PACKAGE=. sh scripts/install/install.sh
+export PATH="$HOME/.local/bin:$PATH"
+lift version    # {"version": "0.1.7"}
+lift doctor     # status check including node/Pi runtime
+lift runtime    # available: true when node + Pi CLI installed
+lift model login openai --method api-key --api-key "$OPENAI_API_KEY"
+lift quickstart # end-to-end fixture run
+lift            # Pi shell (if runtime available) or REPL (fallback)
+```
+
+Pass criteria:
+
+- `lift version` returns correct version
+- `lift doctor` indicates Pi runtime status (not just Python deps)
+- `lift quickstart` succeeds with fixture data
+- Second `lift` (no args) does NOT show model setup screen
+- Pi shell (if available) responds to natural-language questions using lift tools
+
+## INT-007: Natural-language → Lift tool chain (Pi shell)
+
+Requires: node + @mariozechner/pi-coding-agent installed, default model configured.
+
+Test:
+
+```
+lift
+> fixtures/randomized_coupon.csv 데이터로 incremental ROI를 계산해줘.
+```
+
+Pass criteria:
+
+- Pi shell calls `lift_inspect_dataset` or `lift_analyze_campaign` tool (not hallucinating values)
+- Result includes `campaign_incrementality.json` values
+- No invented metrics appear in the response
+- Run id and artifact path are cited
 
 ## INT-005: Skills installer
 
@@ -500,9 +732,30 @@ MVP passes when:
 3. Low-overlap data is marked low trust or blocked.
 4. Leakage columns are excluded by default.
 5. Baselines and Duality R-learner all produce finite scores.
-6. Cost Curve, AUCC, iRoI, CPiA, and budget frontier are generated.
+6. Cost Curve, AUCC (correctly computed against incremental_cost), iRoI, CPiA, and budget frontier are generated.
 7. Budget simulation never exports a target list that violates hard budget.
 8. `fractional_uplift` is not required at runtime.
 9. CLI and REPL use the same core workflow.
 10. Re-running with the same seed produces equivalent model/evaluation artifacts within tolerance.
 11. Skills installation works for Codex user-level and repo-local targets.
+12. `lift doctor` reports node/Pi CLI/OAuth bridge status (not only Python deps).
+13. `policy-scores.csv` enables identification of negative-uplift customers (anti-targets).
+14. Second `lift` run after successful setup skips model setup prompt.
+15. `lift runtime` reports `available: true` after successful installer run on a node+npm system.
+
+---
+
+# 10. Known Gaps (v0.1.7)
+
+These items are documented as failing or absent. Tests against them are expected to fail until fixed.
+
+| ID | Gap | Severity |
+|----|-----|----------|
+| GAP-001 | `aucc` and `auuc` are computed identically in `metrics.py`. AUCC must be area under gain-vs-cost curve. | HIGH |
+| GAP-002 | Anti-target export missing. `targets.csv` silently excludes negative-uplift customers. | HIGH |
+| GAP-003 | `lift doctor` does not check node, Pi CLI, or OAuth bridge. | MEDIUM |
+| GAP-004 | `/compare-models` slash command not implemented in REPL or Pi tools. | MEDIUM |
+| GAP-005 | `lift status` returns `{"status": "ready"}` only, not a model/session dashboard. | MEDIUM |
+| GAP-006 | OAuth provider ID mapping between Lift names and Pi AuthStorage not validated. | MEDIUM |
+| GAP-007 | Optional packages multiselect in setup prints hardcoded items, does not install. | LOW |
+| GAP-008 | Pi shell `--model` flag format (`provider/model`) compatibility with Pi CLI not validated. | MEDIUM |

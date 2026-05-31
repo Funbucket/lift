@@ -418,6 +418,8 @@ Required metrics:
 - incremental ROI
 - confidence interval for randomized experiment
 
+Implementation note (v0.1.7): `campaign_incrementality()` is implemented using IPW-weighted difference-in-means. CI is computed with normal approximation and is marked `unsupported` for non-randomized data.
+
 ## 7.2 Ranking evaluation
 
 Required curves:
@@ -430,13 +432,15 @@ Required curves:
 
 Required scalar metrics:
 
-- AUCC
-- AUUC
+- AUCC (Area Under Cost Curve: incremental_gain vs incremental_cost)
+- AUUC (Area Under Uplift Curve: incremental_gain vs target_share)
 - Qini
 - iRoI at budget
 - gain at min ROI
 - max gain under budget
 - target count at cutoff
+
+**Known bug (v0.1.7):** `evaluate_ranking()` in `metrics.py` sets `aucc = auuc` to the same value (AUUC, area under gain vs target_share curve). AUCC must be computed as the area under the incremental_gain vs incremental_cost curve. Fix required before claiming AUCC correctness.
 
 ## 7.3 Propensity weighting
 
@@ -486,6 +490,8 @@ selection_reason
 trust_level
 ```
 
+**Implementation note (v0.1.7):** Currently `targets.csv` only includes customers with `score > 0 AND gain > 0` (positive-benefit targeting list). Customers with negative uplift are silently excluded. A separate `anti-targets.csv` (or `recommended_treatment=0` rows in `targets.csv`) is required to answer "쿠폰이 손해인 고객군" queries. This is not yet implemented.
+
 ---
 
 # 9. Standalone Runtime Contract
@@ -505,7 +511,36 @@ lift report <run-id>
 lift outputs
 lift doctor
 lift status
+lift runtime
+lift repl
+lift version
+lift model list
+lift model login <provider> --method oauth|api-key
+lift model set <provider/model>
+lift model bridge
+lift model bridge-path --raw
+lift agent status
+lift agent set <codex|claude>
+lift install-skills --target codex|repo
 ```
+
+**Implementation note (v0.1.7):**
+- `lift status` returns only `{"status": "ready"}`. Full dashboard with model/dir/session/agents is not yet implemented.
+- `lift doctor` does not check node availability, Pi CLI installation, or OAuth bridge status. A doctor "ok" result does not guarantee the natural-language shell will work.
+
+### Pi runtime dependency chain
+
+The natural-language shell (`lift` with no args) requires all of the following:
+
+1. `node` on PATH
+2. `@mariozechner/pi-coding-agent` installed at `~/.lift/oauth-bridge/node_modules/@mariozechner/pi-coding-agent/dist/cli.js`
+3. `lift.pi_assets/lift_tools.mjs` (bundled with wheel)
+4. `lift.pi_assets/prompts/` (bundled with wheel)
+5. A default model configured in `~/.lift/settings.json`
+
+If any of 1–4 is missing, `launch_pi_chat()` raises `RuntimeError` and the CLI falls back to the legacy slash-command REPL with a warning message. The installer (`install.sh`) handles steps 1–2 automatically when `node` and `npm` are available and `LIFT_INSTALL_OAUTH_BRIDGE=auto` (default).
+
+**Risk**: `@mariozechner/pi-coding-agent` is the Feynman/Pi coding agent npm package. Its availability on the npm registry must be confirmed before relying on it in the install flow.
 
 ## 9.2 Natural-language shell and legacy slash commands
 
@@ -546,15 +581,23 @@ Each run writes:
 ```
 outputs/<slug>/run.json
 outputs/<slug>/schema.json
+outputs/<slug>/propensity.json        # actual output, not listed in PRD 14
 outputs/<slug>/trust.json
 outputs/<slug>/campaign_incrementality.json
 outputs/<slug>/models.json
 outputs/<slug>/evaluation.json
+outputs/<slug>/curves.csv             # per-model ranking curves (multi-model)
 outputs/<slug>/budget-frontier.csv
+outputs/<slug>/policy-scores.csv      # per-unit scores from primary model
 outputs/<slug>/targets.csv
+outputs/<slug>/simulation.json
 outputs/<slug>/report.md
 outputs/<slug>/provenance.md
 ```
+
+**Note:** PRD section 14 lists 9 files. Actual output is 14 files including `propensity.json`, `curves.csv`, `policy-scores.csv`, and `simulation.json`. PRD should be updated to reflect the actual artifact contract.
+
+Output root for installed builds defaults to `~/.lift/outputs` (not `outputs/` relative to cwd). Override with `LIFT_HOME`, `LIFT_OUTPUT_ROOT`, or `--output-root`.
 
 `run.json` must include:
 

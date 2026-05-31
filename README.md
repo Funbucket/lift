@@ -97,10 +97,16 @@ By default, installed runs write artifacts under `~/.lift/outputs`. Override wit
 .venv/bin/lift version
 ```
 
-Run a packaged example end-to-end:
+Run a packaged example end-to-end (uses small fixture values; `budget=5.0` and `min_roi=0.1` match the fixture scale):
 
 ```bash
 .venv/bin/lift quickstart
+```
+
+For real campaign data with budgets in the hundreds of millions, pass explicit constraints:
+
+```bash
+.venv/bin/lift analyze data.csv --budget 100000000 --min-roi 1.5 --seed 123
 ```
 
 Run `lift` with no command to open the natural-language Lift shell:
@@ -110,6 +116,13 @@ Lift dashboard...
 > 이 캠페인의 incremental ROI는 얼마야? data.csv를 분석해서 알려줘.
 > 예산 100000000이면 누구에게 쿠폰을 보내야 해?
 ```
+
+**Requirements for the natural-language shell:** The Pi shell requires `node` on PATH and
+`@mariozechner/pi-coding-agent` installed under `~/.lift/oauth-bridge/`. The installer
+handles this automatically when `node` and `npm` are available. If the Pi runtime is not
+installed, `lift` falls back to the legacy slash-command REPL with a warning.
+
+Check runtime status with `lift runtime`. If `available: false`, reinstall with the default installer or set `LIFT_INSTALL_OAUTH_BRIDGE=1` and rerun.
 
 The legacy slash-command REPL remains available with `lift repl`.
 
@@ -161,13 +174,32 @@ lift install-skills --target repo --project-root .
 
 ## Fixtures
 
-Small local fixtures are available for smoke testing:
+Small local fixtures are available for smoke testing. These use small numeric values (maximize_kpi ~0–5, constraint_kpi ~0–1); use `--budget` and `--min-roi` appropriate to the fixture scale:
 
 ```bash
-.venv/bin/lift analyze fixtures/randomized_coupon.csv
-.venv/bin/lift analyze fixtures/observational_coupon.csv --estimate-propensity
-.venv/bin/lift analyze fixtures/low_overlap_coupon.csv
+.venv/bin/lift analyze fixtures/randomized_coupon.csv --seed 123
+.venv/bin/lift analyze fixtures/observational_coupon.csv --estimate-propensity --seed 123
+.venv/bin/lift analyze fixtures/low_overlap_coupon.csv --seed 123
 .venv/bin/lift inspect fixtures/leakage_coupon.csv
+```
+
+After analysis, artifacts are written under `~/.lift/outputs/<run-id>/` (installed) or `outputs/<run-id>/` (local dev). Each run produces:
+
+```
+run.json              # seed, dataset fingerprint, config, status
+schema.json           # inferred column mapping
+propensity.json       # propensity source and stats
+trust.json            # trust_level, overlap, covariate balance, leakage
+campaign_incrementality.json  # campaign-level iROI and CIs
+models.json           # model list and primary model
+evaluation.json       # AUUC, Qini, cost curve scalars per model
+curves.csv            # per-model ranking curves (all targets)
+budget-frontier.csv   # cumulative gain/cost/ROI as targets added
+policy-scores.csv     # per-unit scores and expected gain/cost from primary model
+targets.csv           # budget/ROI filtered target list
+simulation.json       # constraint status and expected portfolio metrics
+report.md             # human-readable summary
+provenance.md         # dataset fingerprint and artifact list
 ```
 
 Supported regression estimators:
